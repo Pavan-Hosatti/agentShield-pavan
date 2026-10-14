@@ -1,13 +1,10 @@
 @echo off
-title AgentShield V3 - Live Demo Launcher
+title AgentShield V3 - Security Control Console
 echo ============================================================
-echo   AgentShield V3 - Starting Demonstration Dashboard
+echo   AgentShield V3 - Security Verification Console
 echo ============================================================
 echo.
-echo Launching local dashboard at http://localhost:8888...
-echo Browser will open automatically.
-echo.
-echo Clicking any card will open a REAL interactive PowerShell window!
+echo Opening security cockpit at http://localhost:8888...
 echo.
 python demo_dashboard.py
 pause

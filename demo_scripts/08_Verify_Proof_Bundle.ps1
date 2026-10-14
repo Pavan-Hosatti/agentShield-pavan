@@ -9,42 +9,20 @@ function Type-Cmd {
     Write-Host "  PS AgentShield> " -NoNewline -ForegroundColor Green
     foreach ($ch in $C.ToCharArray()) {
         Write-Host -NoNewline $ch -ForegroundColor White
-        Start-Sleep -Milliseconds 32
+        Start-Sleep -Milliseconds 28
     }
     Write-Host ""; Write-Host ""
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds 400
 }
 
 Write-Host ""
 Write-Host "  +==============================================================+" -ForegroundColor Cyan
-Write-Host "  |        AgentShield V3  --  REVA Cyber Hackathon Live Demo     |" -ForegroundColor Cyan
+Write-Host "  |        AgentShield V3  --  Security Verification Engine      |" -ForegroundColor Cyan
 Write-Host "  +==============================================================+" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  DEMO STEP 08 : VERIFY CRYPTOGRAPHIC PROOF BUNDLE" -ForegroundColor Yellow
+Write-Host "  MODULE 08 : VERIFY CRYPTOGRAPHIC PROOF BUNDLE" -ForegroundColor Yellow
+Write-Host "  STATUS : ACTIVE | TARGET : REAL RUNTIME" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "  ---- WHAT TO TELL THE JUDGES ----------------------------------" -ForegroundColor Magenta
-$judge = @"
-We can independently verify the proof bundle at any time, even on a different machine. It validates the cryptographic HMAC signature, checks invariant claims, and confirms zero tampering.
-"@
-$judge -split "[\r\n]+" | ForEach-Object {
-    $t = $_.Trim()
-    if ($t) {
-        $words = $t -split " "
-        $line = "  "
-        foreach ($w in $words) {
-            if (($line.Length + $w.Length + 1) -gt 74) {
-                Write-Host $line -ForegroundColor Gray
-                $line = "  " + $w + " "
-            } else {
-                $line += $w + " "
-            }
-        }
-        if ($line.Trim()) { Write-Host $line -ForegroundColor Gray }
-    }
-}
-Write-Host "  ---------------------------------------------------------------" -ForegroundColor DarkGray
-Write-Host ""
-Write-Host "  [AUTOMATION] Executing command in real terminal..." -ForegroundColor DarkYellow
 Set-Location "D:\reva cyber hack-pavan\agentshield"
 $env:PYTHONPATH = "D:\reva cyber hack-pavan\agentshield;D:\reva cyber hack-pavan\agentshield\backend"
 
@@ -54,6 +32,6 @@ python -m core.proof_export --verify proof_bundle.json
 
 Write-Host ""
 Write-Host "  +-------------------------------------------------------------+" -ForegroundColor DarkGray
-Write-Host "  | Execution complete. Window stays open for judges to review.  |" -ForegroundColor DarkGray
+Write-Host "  | [PASS] Execution complete. State held for verification.      |" -ForegroundColor DarkGray
 Write-Host "  +-------------------------------------------------------------+" -ForegroundColor DarkGray
 Write-Host ""

@@ -1,6 +1,6 @@
 """
-AgentShield V3 - Live Judge Demonstration Dashboard
-Starts a local web server (zero dependencies) and launches real PowerShell windows on demand.
+AgentShield V3 - Security Verification & Live Demonstration Console
+Local security cockpit that launches real PowerShell execution windows on demand.
 """
 
 import http.server
@@ -26,18 +26,18 @@ DEMOS = [
         "subtitle": "Pre-flight checks + cryptographic proof bundle + Attacker B REST API on :8003",
         "cmd": "powershell -ExecutionPolicy Bypass -File start_pavan.ps1",
         "duration": "~3s",
-        "judge": "This is our one-command startup. It runs 10 security pre-flight checks. If any fail, startup aborts immediately. Then it generates a tamper-evident cryptographic proof bundle certifying all invariants hold. Finally it starts the Attacker B REST API on port 8003. Fully automated, production-grade.",
+        "spec": "Automated system startup sequence. Validates 10 pre-flight security invariant checks, constructs the HMAC-signed cryptographic audit proof bundle certifying mathematical integrity, and initializes the Attacker B REST boundary endpoint on port 8003.",
     },
     {
         "id": "02",
         "name": "8_Attacks_All_Blocked",
-        "badge": "ATTACKS",
+        "badge": "ADVERSARIAL",
         "color": "#ff4466",
         "title": "8 Attacks All Blocked Live",
         "subtitle": "Capability replay, expired token, revoked agent, direct bypass, policy downgrade, cross-tenant, delegation escalation, fail-open probe",
         "cmd": "python -m core.scenarios.replay_scenarios",
         "duration": "~1s",
-        "judge": "These are 8 real attack scenarios against our AI agent architecture. Watch as capability replay, expired tokens, revoked agents, direct gateway bypass, policy downgrade, cross-tenant scope escape, delegation privilege escalation, and fail-open probe abuse are ALL blocked live with invariant certification.",
+        "spec": "Adversarial replay suite covering 8 high-severity attack vectors: atomic capability replay, token expiration TTL enforcement, runtime agent revocation re-checks, perimeter network bypass attempts, policy downgrade prevention, cross-tenant isolation, delegation privilege bounds, and fail-closed availability guarantees.",
     },
     {
         "id": "03",
@@ -48,7 +48,7 @@ DEMOS = [
         "subtitle": "Quantified security posture: Config A (6%) vs Config B (61%) vs Config C (100% closed)",
         "cmd": "python -m core.baselines",
         "duration": "<1s",
-        "judge": "We modelled 3 real-world deployment configurations. Config A is a naive setup with only 6% of attack surfaces closed. Config B adds authentication and replay guards (61%). Config C is our full zero-trust posture where 100% of all 18 threat surfaces are closed.",
+        "spec": "Comparative empirical analysis across 18 documented threat surfaces. Demonstrates protection gap: Config A (naive baseline: 6% closed), Config B (typical enterprise JWT/rate-limiting: 61% closed), and Config C (AgentShield full zero-trust posture: 100% closed).",
     },
     {
         "id": "04",
@@ -59,7 +59,7 @@ DEMOS = [
         "subtitle": "5 malicious OPA policy tampering mutations injected - 5/5 caught before deployment",
         "cmd": "python -m core.policy_mutation",
         "duration": "<1s",
-        "judge": "We inject 5 real policy mutations into our OPA Rego rules: removing default-deny, adding wildcard allow, stripping revoked-agent deny, stripping action digest binding, and removing fallback deny. Our static validator catches 5 out of 5 before any code reaches production.",
+        "spec": "Static semantic validator testing for policy integrity. Evaluates system resilience against deliberate rule tampering including default-deny removal, wildcard permit injections, revoked-agent deny stripping, and approval digest bypasses. All 5 mutations intercepted prior to deployment.",
     },
     {
         "id": "05",
@@ -70,7 +70,7 @@ DEMOS = [
         "subtitle": "Invalid transition attempts (e.g. skip claim) mathematically forced into REJECTED",
         "cmd": "python -m core.state_machine",
         "duration": "<1s",
-        "judge": "Our execution state machine strictly governs valid transitions. An attacker trying to jump directly from AUTHORIZED to EXECUTING to skip the atomic JTI claim triggers an INVALID_TRANSITION and is instantly forced into REJECTED. Fail-closed by mathematical design.",
+        "spec": "Deterministic state transition model governing autonomous execution lifecycles. Strictly enforces valid sequential state transitions: PENDING -> EVALUATING -> AUTHORIZED -> CLAIMING -> EXECUTING -> SUCCEEDED. Any out-of-order execution attempt forces immediate fail-closed REJECTED state.",
     },
     {
         "id": "06",
@@ -81,7 +81,7 @@ DEMOS = [
         "subtitle": "Child agent permissions enforced as strict subset of parent - 6 escalation rules verified",
         "cmd": "python -m core.delegation",
         "duration": "<1s",
-        "judge": "When an AI agent delegates authority to a sub-agent, the child can never exceed the parent permissions. We enforce 7 strict invariant rules: tool scope, amount limit, TTL, tenant ID, environments, policy version, and delegation depth. Watch live as 6 simultaneous escalation attempts are stopped.",
+        "spec": "Sub-agent delegation boundary enforcement ensuring sub-agents operate strictly within a mathematical subset of parent authority. Enforces 7 discrete invariant checks across tool definitions, transaction limits, TTL bounds, tenant identities, deployment environments, and delegation hierarchy depths.",
     },
     {
         "id": "07",
@@ -92,7 +92,7 @@ DEMOS = [
         "subtitle": "Cryptographically sealed HMAC audit certificate verifying 11 invariants in <1s",
         "cmd": "python -m core.proof_export --out proof_bundle.json",
         "duration": "<1s",
-        "judge": "This generates a cryptographically sealed proof bundle in under 1 second. It certifies that all 11 security invariants hold, all 8 attacks are blocked, and the OPA policy passes all 14 static checks with an HMAC seal. Any tampering with the bundle is immediately detectable.",
+        "spec": "Generates a machine-verifiable cryptographic proof certificate in under 1 second. Compiles SHA-256 state hashes, OPA Rego policy digests, and invariant execution claims into a unified JSON structure secured by an HMAC signature for tamper detection.",
     },
     {
         "id": "08",
@@ -100,10 +100,10 @@ DEMOS = [
         "badge": "AUDIT",
         "color": "#00ff88",
         "title": "Verify Proof Bundle",
-        "subtitle": "Independent HMAC seal and invariant claims verification for third-party judges",
+        "subtitle": "Independent HMAC seal and invariant claims verification for third-party auditing",
         "cmd": "python -m core.proof_export --verify proof_bundle.json",
         "duration": "<1s",
-        "judge": "We can independently verify the proof bundle at any time, even on a different machine. It validates the cryptographic HMAC signature, checks invariant claims, and confirms zero tampering. This gives third-party judges mathematical certainty.",
+        "spec": "Independent verification utility designed for third-party auditors. Parses exported proof bundles, re-evaluates HMAC integrity, checks invariant attestations against known specifications, and confirms zero-tampering without requiring execution of the live environment.",
     },
     {
         "id": "09",
@@ -114,7 +114,7 @@ DEMOS = [
         "subtitle": "Automated verification of digests, hard-deny rules, audit chain, schemas, and Ed25519 keys",
         "cmd": "python -m app.security.invariant_checker --verbose",
         "duration": "~1s",
-        "judge": "Before every demo run, this automated pre-flight check validates 10 critical security properties across the system: digest mismatch, hard-deny non-overridability, approval digest binding, audit chain tamper detection, schema acceptance, OPA policy validation, and Ed25519 key verification.",
+        "spec": "Comprehensive pre-deployment diagnostic evaluating 10 essential security primitives: action digest binding, hard-deny precedence, approval consumption state, audit log immutability, schema compliance, OPA rule validity, and cryptographic key validity.",
     },
     {
         "id": "10",
@@ -125,7 +125,7 @@ DEMOS = [
         "subtitle": "Unit, adversarial, integration, and scenario tests: 426 passed, 0 failures in 2.8s",
         "cmd": "python -m pytest tests/ -v",
         "duration": "~3s",
-        "judge": "Our test suite covers unit tests for every security primitive, adversarial attack tests for all 10 threat categories, integration tests, and scenario tests for all 8 attacks. 426 tests passed with 0 failures in under 3 seconds. Full proof that our implementation matches our threat model.",
+        "spec": "Complete automated verification suite containing 426 passing tests across unit boundaries, adversarial attack simulations, and integration workflows. Executes in under 3 seconds with 0 failures.",
     },
 ]
 
@@ -136,7 +136,7 @@ HTML_PAGE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AgentShield V3 — Live Demonstration Cockpit</title>
+<title>AgentShield V3 — Security Verification Cockpit</title>
 <style>
   :root {
     --bg-dark: #04060d;
@@ -234,31 +234,31 @@ HTML_PAGE = """<!DOCTYPE html>
   .telem-val span { font-size: 15px; color: var(--green); }
   .telem-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); }
 
-  /* Judge Speaking Box */
-  .judge-box {
-    background: linear-gradient(135deg, rgba(245, 166, 35, 0.05), rgba(7, 12, 24, 0.95));
-    border: 1px solid rgba(245, 166, 35, 0.35);
-    border-left: 4px solid var(--orange);
+  /* Security Specification Box */
+  .spec-box {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.04), rgba(7, 12, 24, 0.95));
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-left: 4px solid var(--cyan);
     border-radius: 12px;
     padding: 22px 28px;
     margin-bottom: 32px;
     box-shadow: 0 12px 30px rgba(0,0,0,0.4);
   }
-  .judge-header {
+  .spec-header {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
   }
-  .judge-tag {
-    font-size: 11px; letter-spacing: 2px; color: var(--orange);
+  .spec-tag {
+    font-size: 11px; letter-spacing: 2px; color: var(--cyan);
     text-transform: uppercase; font-weight: 800; display: flex; align-items: center; gap: 8px;
   }
-  .judge-step-badge {
-    background: rgba(245, 166, 35, 0.15);
-    padding: 3px 10px; border-radius: 6px; font-weight: 700; color: var(--orange); font-size: 12px;
+  .spec-step-badge {
+    background: rgba(0, 212, 255, 0.15);
+    padding: 3px 10px; border-radius: 6px; font-weight: 700; color: var(--cyan); font-size: 12px;
   }
-  .judge-speech {
-    font-size: 15px; line-height: 1.7; color: #d6e2f0;
+  .spec-text {
+    font-size: 14px; line-height: 1.7; color: #d6e2f0;
   }
-  .judge-cmd-preview {
+  .spec-cmd-preview {
     margin-top: 14px;
     background: #020408;
     border: 1px solid #132238;
@@ -266,7 +266,7 @@ HTML_PAGE = """<!DOCTYPE html>
     padding: 10px 16px;
     font-family: Consolas, monospace;
     font-size: 12px;
-    color: var(--cyan);
+    color: var(--green);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -375,8 +375,8 @@ HTML_PAGE = """<!DOCTYPE html>
     <div class="logo-title">AGENTSHIELD <span>V3</span></div>
   </div>
   <div style="display:flex; gap:16px; align-items:center;">
-    <div style="font-size:12px; color:var(--text-muted); font-family:Consolas,monospace;">REVA Cyber Hackathon 2026</div>
-    <div class="live-pill"><span class="pulse-dot"></span> LIVE DEMO COCKPIT</div>
+    <div style="font-size:12px; color:var(--text-muted); font-family:Consolas,monospace;">REVA Cyber Security Framework</div>
+    <div class="live-pill"><span class="pulse-dot"></span> LIVE COCKPIT</div>
   </div>
 </div>
 
@@ -390,7 +390,7 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
     <div class="telemetry-card">
       <div class="telem-val" style="color:var(--green)">8 <span>/ 8</span></div>
-      <div class="telem-lbl">Attacks Blocked Live</div>
+      <div class="telem-lbl">Adversarial Scenarios Blocked</div>
     </div>
     <div class="telemetry-card">
       <div class="telem-val" style="color:var(--cyan)">100%</div>
@@ -398,36 +398,36 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
     <div class="telemetry-card">
       <div class="telem-val">426 <span>/ 426</span></div>
-      <div class="telem-lbl">Tests Passing (0 Fails)</div>
+      <div class="telem-lbl">Test Assertions Passed (0 Fails)</div>
     </div>
     <div class="telemetry-card">
       <div class="telem-val" style="color:var(--orange)">Port 8003</div>
-      <div class="telem-lbl">Attacker B REST API</div>
+      <div class="telem-lbl">Adversary API Boundary</div>
     </div>
   </div>
 
-  <!-- Judge Speaking Prompter -->
-  <div class="judge-box" id="judgeBox">
-    <div class="judge-header">
-      <div class="judge-tag">📢 WHAT TO SAY TO THE JUDGES</div>
-      <div class="judge-step-badge" id="judgeStepBadge">STEP 02 -- 8 ATTACKS BLOCKED LIVE</div>
+  <!-- Security Specification Box -->
+  <div class="spec-box" id="specBox">
+    <div class="spec-header">
+      <div class="spec-tag">🛡️ SECURITY INVARIANT & THREAT SPECIFICATION</div>
+      <div class="spec-step-badge" id="specStepBadge">MODULE 02 -- 8 ATTACKS ALL BLOCKED LIVE</div>
     </div>
-    <div class="judge-speech" id="judgeSpeech">
-      "These are 8 real attack scenarios against our AI agent architecture. Watch as capability replay, expired tokens, revoked agents, direct gateway bypass, policy downgrade, cross-tenant scope escape, delegation privilege escalation, and fail-open probe abuse are ALL blocked live with invariant certification."
+    <div class="spec-text" id="specText">
+      Adversarial replay suite covering 8 high-severity attack vectors: atomic capability replay, token expiration TTL enforcement, runtime agent revocation re-checks, perimeter network bypass attempts, policy downgrade prevention, cross-tenant isolation, delegation privilege bounds, and fail-closed availability guarantees.
     </div>
-    <div class="judge-cmd-preview">
-      <span id="judgeCmd">python -m core.scenarios.replay_scenarios</span>
-      <span style="color:var(--text-muted); font-size:11px;" id="judgeDuration">Estimated runtime: ~1s</span>
+    <div class="spec-cmd-preview">
+      <span id="specCmd">python -m core.scenarios.replay_scenarios</span>
+      <span style="color:var(--text-muted); font-size:11px;" id="specDuration">Runtime: ~1s</span>
     </div>
   </div>
 
   <!-- Section Header -->
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-    <h2 style="font-size:18px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted);">
-      Click Any Card to Launch Real PowerShell Window
+    <h2 style="font-size:16px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted);">
+      Interactive Security Modules
     </h2>
     <span style="font-size:12px; color:var(--cyan); font-weight:600;">
-      ⚡ Commands automatically type & execute live in front of judges
+      ⚡ Triggers live runtime verification in dedicated terminal
     </span>
   </div>
 
@@ -440,10 +440,10 @@ HTML_PAGE = """<!DOCTYPE html>
 
 <!-- Toast -->
 <div class="toast" id="toast">
-  <span style="font-size:20px;">🚀</span>
+  <span style="font-size:20px;">⚡</span>
   <div>
-    <div style="color:var(--green); font-weight:700;" id="toastTitle">Real PowerShell Window Launched</div>
-    <div style="font-size:12px; color:var(--text-muted);" id="toastMsg">Check your desktop/taskbar - automation typing now!</div>
+    <div style="color:var(--green); font-weight:700;" id="toastTitle">Process Launched</div>
+    <div style="font-size:12px; color:var(--text-muted);" id="toastMsg">Interactive console opened on host system.</div>
   </div>
 </div>
 
@@ -455,18 +455,18 @@ function renderCards() {
   let html = '';
   DEMOS.forEach((d, idx) => {
     html += `
-      <div class="demo-card" id="card-${d.id}" onmouseenter="selectJudge(${idx})" onclick="launchDemo('${d.id}', event)">
+      <div class="demo-card" id="card-${d.id}" onmouseenter="selectSpec(${idx})" onclick="launchDemo('${d.id}', event)">
         <div>
           <div class="card-top">
             <span class="card-badge" style="background:${d.color}22; color:${d.color}; border:1px solid ${d.color}55;">${d.badge}</span>
-            <span class="card-num">STEP ${d.id}</span>
+            <span class="card-num">#${d.id}</span>
           </div>
           <div class="card-title" style="color:${d.color}">${d.title}</div>
           <div class="card-sub">${d.subtitle}</div>
         </div>
         <div class="card-action-bar">
           <button class="btn-launch" id="btn-${d.id}">
-            <span>⚡ LAUNCH REAL POWERSHELL</span>
+            <span>⚡ EXECUTE VERIFICATION</span>
           </button>
         </div>
       </div>
@@ -475,31 +475,31 @@ function renderCards() {
   container.innerHTML = html;
 }
 
-function selectJudge(idx) {
+function selectSpec(idx) {
   const d = DEMOS[idx];
-  document.getElementById('judgeStepBadge').innerText = `STEP ${d.id} -- ${d.title.toUpperCase()}`;
-  document.getElementById('judgeSpeech').innerText = `"${d.judge}"`;
-  document.getElementById('judgeCmd').innerText = d.cmd;
-  document.getElementById('judgeDuration').innerText = `Estimated runtime: ${d.duration}`;
+  document.getElementById('specStepBadge').innerText = `MODULE ${d.id} -- ${d.title.toUpperCase()}`;
+  document.getElementById('specText').innerText = d.spec;
+  document.getElementById('specCmd').innerText = d.cmd;
+  document.getElementById('specDuration').innerText = `Runtime: ${d.duration}`;
 }
 
 async function launchDemo(id, evt) {
   const btn = document.getElementById(`btn-${id}`);
   const origText = btn.innerHTML;
-  btn.innerHTML = '<span>⏳ OPENING TERMINAL...</span>';
+  btn.innerHTML = '<span>⏳ LAUNCHING CONSOLE...</span>';
   btn.classList.add('btn-active');
 
-  showToast(`Step ${id} Launched!`, 'Real PowerShell console window opened on your desktop.');
+  showToast(`Module ${id} Triggered`, 'Live verification window active on desktop.');
 
   try {
     const res = await fetch(`/launch?id=${id}`);
     const data = await res.json();
     setTimeout(() => {
-      btn.innerHTML = '<span>⚡ LAUNCH REAL POWERSHELL</span>';
+      btn.innerHTML = '<span>⚡ EXECUTE VERIFICATION</span>';
       btn.classList.remove('btn-active');
     }, 2500);
   } catch (err) {
-    showToast('Launch Error', 'Failed to trigger launcher server.');
+    showToast('Launch Error', 'Failed to trigger console service.');
     btn.innerHTML = origText;
     btn.classList.remove('btn-active');
   }
@@ -515,7 +515,7 @@ function showToast(title, msg) {
 
 renderCards();
 // Default to step 02
-selectJudge(1);
+selectSpec(1);
 </script>
 
 </body>
@@ -547,7 +547,7 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
 
             ps1_file = os.path.join(SCRIPTS_DIR, f"{demo['id']}_{demo['name']}.ps1")
             
-            # Launch in a real, interactive Windows console window
+            # Launch in real interactive Windows console window
             try:
                 cmd_line = [
                     "powershell.exe",
@@ -563,7 +563,7 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
                     cwd=demo["cwd"],
                 )
                 status = "ok"
-                msg = f"Launched real PowerShell for {demo['title']}"
+                msg = f"Launched verification for {demo['title']}"
             except Exception as e:
                 status = "error"
                 msg = str(e)
@@ -578,7 +578,6 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, format, *args):
-        # Clean logging
         pass
 
 def run():
@@ -586,13 +585,9 @@ def run():
     httpd = http.server.HTTPServer(server_address, DemoServerHandler)
     url = f"http://localhost:{PORT}"
     print("=" * 64)
-    print("AgentShield V3 - Demonstration Console Running")
+    print("AgentShield V3 - Security Cockpit Running")
     print(f"URL: {url}")
-    print("Clicking any card will open a REAL PowerShell window on desktop.")
     print("=" * 64)
-
-    # Automatically open browser
-    threading.Timer(0.8, lambda: webbrowser.open(url)).start()
 
     try:
         httpd.serve_forever()

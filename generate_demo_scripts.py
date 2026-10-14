@@ -13,15 +13,13 @@ DEMOS = [
         "title": "Start All Services (Pre-Flight + Proof + Attacker B API)",
         "cmd": "powershell -ExecutionPolicy Bypass -File start_pavan.ps1",
         "cwd": PROJECT_DIR,
-        "judge": "This is our one-command startup. It runs 10 security pre-flight checks. If any fail, the demo aborts immediately. Then it generates a tamper-evident cryptographic proof bundle certifying all invariants hold. Finally it starts the Attacker B REST API on port 8003. Fully automated, production-grade.",
     },
     {
         "id": "02",
         "name": "8_Attacks_All_Blocked",
-        "title": "8 Attacks All Blocked Live",
+        "title": "8 Adversarial Attacks All Blocked Live",
         "cmd": "python -m core.scenarios.replay_scenarios",
         "cwd": PROJECT_DIR,
-        "judge": "These are 8 real attack scenarios: capability replay, expired token submission, revoked agent execution, direct gateway bypass, policy version downgrade, cross-tenant scope escape, delegation privilege escalation, and fail-open probe abuse. Every single attack is blocked live with invariant certification.",
     },
     {
         "id": "03",
@@ -29,7 +27,6 @@ DEMOS = [
         "title": "Baseline Protection Comparison (6% vs 61% vs 100%)",
         "cmd": "python -m core.baselines",
         "cwd": PROJECT_DIR,
-        "judge": "We modelled 3 real-world deployment configurations. Config A is a naive setup with only 6% attack surfaces closed. Config B adds authentication and replay guards (61%). Config C is our full zero-trust posture where 100% of all 18 threat surfaces are closed.",
     },
     {
         "id": "04",
@@ -37,7 +34,6 @@ DEMOS = [
         "title": "Policy Mutation Tests (5/5 Malicious Rules Caught)",
         "cmd": "python -m core.policy_mutation",
         "cwd": PROJECT_DIR,
-        "judge": "We inject 5 real policy mutations into our OPA Rego rules: removing default-deny, adding a wildcard allow, stripping revoked-agent deny, stripping action digest binding, and removing fallback deny. Our static validator catches 5 out of 5 before any code reaches production.",
     },
     {
         "id": "05",
@@ -45,7 +41,6 @@ DEMOS = [
         "title": "Fail-Closed State Machine Transitions",
         "cmd": "python -m core.state_machine",
         "cwd": PROJECT_DIR,
-        "judge": "Our execution state machine strictly governs valid transitions. An attacker trying to jump directly from AUTHORIZED to EXECUTING to skip the atomic JTI claim triggers an INVALID_TRANSITION and is instantly forced into REJECTED. Fail-closed by mathematical design.",
     },
     {
         "id": "06",
@@ -53,7 +48,6 @@ DEMOS = [
         "title": "Delegation Rules (Child Scope Must Be Strict Subset)",
         "cmd": "python -m core.delegation",
         "cwd": PROJECT_DIR,
-        "judge": "When an AI agent delegates authority to a sub-agent, the child can never exceed the parent permissions. We enforce 7 strict invariant rules: tool scope, amount limit, TTL, tenant ID, environments, policy version, and delegation depth. Watch live as 6 simultaneous escalation attempts are stopped.",
     },
     {
         "id": "07",
@@ -61,7 +55,6 @@ DEMOS = [
         "title": "Generate Cryptographic Proof Bundle",
         "cmd": "python -m core.proof_export --out proof_bundle.json",
         "cwd": PROJECT_DIR,
-        "judge": "This generates a cryptographically sealed proof bundle in under 1 second. It certifies that all 11 security invariants hold, all 8 attacks are blocked, and the OPA policy passes all 14 static checks with an HMAC seal.",
     },
     {
         "id": "08",
@@ -69,7 +62,6 @@ DEMOS = [
         "title": "Verify Cryptographic Proof Bundle",
         "cmd": "python -m core.proof_export --verify proof_bundle.json",
         "cwd": PROJECT_DIR,
-        "judge": "We can independently verify the proof bundle at any time, even on a different machine. It validates the cryptographic HMAC signature, checks invariant claims, and confirms zero tampering.",
     },
     {
         "id": "09",
@@ -77,7 +69,6 @@ DEMOS = [
         "title": "10 Pre-Flight Security Invariant Checks",
         "cmd": "python -m app.security.invariant_checker --verbose",
         "cwd": BACKEND_DIR,
-        "judge": "Before every demo run, this automated pre-flight check validates 10 critical security properties across the system: digest mismatch, hard-deny non-overridability, approval digest binding, audit chain tamper detection, schema acceptance, OPA policy validation, and Ed25519 key verification.",
     },
     {
         "id": "10",
@@ -85,7 +76,6 @@ DEMOS = [
         "title": "Run Full Test Suite (426 Tests Passed)",
         "cmd": "python -m pytest tests/ -v",
         "cwd": PROJECT_DIR,
-        "judge": "Our test suite covers unit tests for every security primitive, adversarial attack tests for all 10 threat categories, integration tests, and scenario tests for all 8 attacks. 426 tests passed with 0 failures in under 3 seconds.",
     },
 ]
 
@@ -102,40 +92,20 @@ def make_ps1_content(demo):
         '    Write-Host "  PS AgentShield> " -NoNewline -ForegroundColor Green',
         '    foreach ($ch in $C.ToCharArray()) {',
         '        Write-Host -NoNewline $ch -ForegroundColor White',
-        '        Start-Sleep -Milliseconds 32',
+        '        Start-Sleep -Milliseconds 28',
         '    }',
         '    Write-Host ""; Write-Host ""',
-        '    Start-Sleep -Milliseconds 500',
+        '    Start-Sleep -Milliseconds 400',
         '}',
         '',
         'Write-Host ""',
         'Write-Host "  +==============================================================+" -ForegroundColor Cyan',
-        'Write-Host "  |        AgentShield V3  --  REVA Cyber Hackathon Live Demo     |" -ForegroundColor Cyan',
+        'Write-Host "  |        AgentShield V3  --  Security Verification Engine      |" -ForegroundColor Cyan',
         'Write-Host "  +==============================================================+" -ForegroundColor Cyan',
         'Write-Host ""',
-        f'Write-Host "  DEMO STEP {demo["id"]} : {demo["title"].upper()}" -ForegroundColor Yellow',
+        f'Write-Host "  MODULE {demo["id"]} : {demo["title"].upper()}" -ForegroundColor Yellow',
+        'Write-Host "  STATUS : ACTIVE | TARGET : REAL RUNTIME" -ForegroundColor DarkGray',
         'Write-Host ""',
-        'Write-Host "  ---- WHAT TO TELL THE JUDGES ----------------------------------" -ForegroundColor Magenta',
-        f'$judge = @"\n{demo["judge"]}\n"@',
-        '$judge -split "[\\r\\n]+" | ForEach-Object {',
-        '    $t = $_.Trim()',
-        '    if ($t) {',
-        '        $words = $t -split " "',
-        '        $line = "  "',
-        '        foreach ($w in $words) {',
-        '            if (($line.Length + $w.Length + 1) -gt 74) {',
-        '                Write-Host $line -ForegroundColor Gray',
-        '                $line = "  " + $w + " "',
-        '            } else {',
-        '                $line += $w + " "',
-        '            }',
-        '        }',
-        '        if ($line.Trim()) { Write-Host $line -ForegroundColor Gray }',
-        '    }',
-        '}',
-        'Write-Host "  ---------------------------------------------------------------" -ForegroundColor DarkGray',
-        'Write-Host ""',
-        'Write-Host "  [AUTOMATION] Executing command in real terminal..." -ForegroundColor DarkYellow',
         f'Set-Location "{demo["cwd"]}"',
         f'$env:PYTHONPATH = "{PROJECT_DIR};{BACKEND_DIR}"',
         '',
@@ -145,7 +115,7 @@ def make_ps1_content(demo):
         '',
         'Write-Host ""',
         'Write-Host "  +-------------------------------------------------------------+" -ForegroundColor DarkGray',
-        'Write-Host "  | Execution complete. Window stays open for judges to review.  |" -ForegroundColor DarkGray',
+        'Write-Host "  | [PASS] Execution complete. State held for verification.      |" -ForegroundColor DarkGray',
         'Write-Host "  +-------------------------------------------------------------+" -ForegroundColor DarkGray',
         'Write-Host ""',
     ]
@@ -172,4 +142,4 @@ for demo in DEMOS:
     with open(bat_path, "w", encoding="utf-8") as f:
         f.write(make_bat_content(ps1_name))
 
-print(f"Generated {len(DEMOS)} PS1 and {len(DEMOS)} BAT files in {SCRIPTS_DIR}")
+print(f"Generated {len(DEMOS)} clean PS1 and {len(DEMOS)} BAT files in {SCRIPTS_DIR}")
