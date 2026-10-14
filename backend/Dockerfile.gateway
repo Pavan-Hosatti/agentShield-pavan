@@ -1,0 +1,29 @@
+# AgentShield V2 — Gateway Dockerfile
+# Owner: Alok (build) | Pavan (network constraints)
+#
+# This service runs on agent_net + internal_net.
+# It must NOT be able to reach mock_tool (executor_net).
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies first (layer cache)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app/ ./app/
+
+# OPA policy bundle is mounted from the host via docker-compose volume
+# (or baked in for production)
+
+ENV PYTHONUNBUFFERED=1
+ENV SERVICE_NAME=gateway
+ENV SERVICE_PORT=8000
+
+EXPOSE 8000
+
+# Alok: replace this placeholder with the real FastAPI app entry point
+# CMD ["uvicorn", "app.main:gateway_app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-c", "print('Gateway service - Alok implements main.py'); import time; time.sleep(9999)"]

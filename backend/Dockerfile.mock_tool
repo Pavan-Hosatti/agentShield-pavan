@@ -1,0 +1,32 @@
+# AgentShield V2 — Mock Protected Tool Dockerfile
+# Owner: Alok (build) | Pavan (isolation contract)
+#
+# SECURITY CONSTRAINT (ADR-007, I1):
+# This container is on executor_net ONLY.
+# It has NO route on agent_net or internal_net.
+# Only the executor service can reach this container.
+#
+# This mock tool:
+# - Accepts POST /execute with idempotency_key
+# - Maintains in-memory or DB mock refund state
+# - Supports GET /result?idempotency_key={jti} for reconciliation
+# - Never processes real payments
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ ./app/
+
+ENV PYTHONUNBUFFERED=1
+ENV SERVICE_NAME=mock_tool
+ENV SERVICE_PORT=8002
+
+EXPOSE 8002
+
+# Alok: replace with mock tool app entry point
+# CMD ["uvicorn", "app.mock_tool:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["python", "-c", "print('Mock tool service - Alok implements'); import time; time.sleep(9999)"]

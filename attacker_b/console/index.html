@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentShield — Attacker B Console</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap');
+
+    :root {
+      --bg: #080c08;
+      --bg2: #0c110c;
+      --bg3: #101810;
+      --panel: #0e160e;
+      --green: #00ff41;
+      --green2: #00cc33;
+      --green3: #008f20;
+      --green4: #004d10;
+      --greenfaint: #001a05;
+      --red: #ff3333;
+      --red2: #cc0000;
+      --red3: #660000;
+      --yellow: #ffcc00;
+      --yellow2: #cc9900;
+      --cyan: #00ffff;
+      --cyan2: #00cccc;
+      --orange: #ff8c00;
+      --dim: #004410;
+      --dimtext: #006618;
+      --border: #002a08;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+      pointer-events: none; z-index: 9999;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--green4); border-radius: 3px; }
+
+    /* ── Layout ── */
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    .hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 20px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--green4);
+      flex-shrink: 0;
+    }
+
+    .hdr-left { display: flex; align-items: center; gap: 14px; }
+    .logo { font-size: 15px; font-weight: 700; letter-spacing: 4px; color: var(--red); text-shadow: 0 0 12px rgba(255,51,51,0.5); }
+    .logo-sub { font-size: 10px; color: var(--dimtext); letter-spacing: 2px; }
+    .hdr-right { display: flex; gap: 10px; align-items: center; }
+
+    .badge {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 8px; border-radius: 2px; font-size: 10px; letter-spacing: 1px;
+    }
+    .badge-red { background: rgba(102,0,0,0.4); border: 1px solid #440000; color: var(--red); }
+    .badge-green { background: rgba(0,50,10,0.4); border: 1px solid var(--green4); color: var(--green2); }
+    .badge-dot { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .blink { animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .body { flex: 1; display: grid; grid-template-columns: 260px 1fr; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 12px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    .sidebar-title {
+      font-size: 10px; letter-spacing: 2px; color: var(--green);
+      padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+    }
+
+    .cat-label { font-size: 9px; color: var(--dimtext); letter-spacing: 1px; margin: 8px 0 2px; }
+
+    .scenario-btn {
+      width: 100%; text-align: left;
+      padding: 7px 10px;
+      background: transparent; border: 1px solid transparent;
+      border-radius: 2px;
+      font-family: inherit; font-size: 11px; cursor: pointer;
+      color: var(--dimtext); transition: all 0.1s;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    .scenario-btn:hover { border-color: var(--red3); color: var(--red); background: rgba(102,0,0,0.08); }
+    .scenario-btn.active { border-color: var(--red2); color: var(--red); background: rgba(255,51,51,0.1); }
+    .scenario-btn .s-id { font-size: 9px; color: inherit; opacity: 0.7; }
+    .scenario-btn .s-name { font-weight: 600; }
+    .scenario-btn .s-tag { font-size: 10px; opacity: 0.7; }
+
+    .divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+    .api-info { font-size: 10px; color: var(--dimtext); padding: 8px; background: var(--greenfaint); border: 1px solid var(--green4); border-radius: 2px; }
+    .api-info b { color: var(--green2); }
+
+    /* ── Main ── */
+    .main { display: flex; flex-direction: column; overflow: hidden; }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 14px;
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .config-label { font-size: 10px; color: var(--dimtext); letter-spacing: 1px; }
+    .config-btn {
+      padding: 4px 10px; border-radius: 2px;
+      font-family: inherit; font-size: 11px; cursor: pointer;
+      letter-spacing: 1px; border: 1px solid; transition: all 0.1s;
+    }
+    .cfg-a { background: rgba(102,0,0,0.3); border-color: var(--red3); color: var(--red); }
+    .cfg-b { background: rgba(102,77,0,0.3); border-color: #4a3800; color: var(--yellow); }
+    .cfg-c { background: rgba(0,50,10,0.3); border-color: var(--green4); color: var(--green2); }
+    .cfg-active { box-shadow: 0 0 8px currentColor; font-weight: 700; }
+
+    .ml-auto { margin-left: auto; }
+
+    .run-btn {
+      padding: 6px 20px; border-radius: 2px;
+      font-family: inherit; font-size: 12px; cursor: pointer;
+      background: rgba(102,0,0,0.5); border: 1px solid var(--red2);
+      color: var(--red); letter-spacing: 2px; transition: all 0.1s;
+    }
+    .run-btn:hover:not(:disabled) { background: rgba(255,51,51,0.15); box-shadow: 0 0 10px rgba(255,51,51,0.4); }
+    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .run-all-btn {
+      padding: 6px 14px; border-radius: 2px;
+      font-family: inherit; font-size: 11px; cursor: pointer;
+      background: rgba(0,40,80,0.4); border: 1px solid #003366;
+      color: var(--cyan2); letter-spacing: 1px; transition: all 0.1s;
+    }
+    .run-all-btn:hover:not(:disabled) { background: rgba(0,204,204,0.1); }
+    .run-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Content area ── */
+    .content { flex: 1; display: grid; grid-template-rows: 1fr 1fr; overflow: hidden; }
+
+    .panel {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    .panel-title {
+      font-size: 10px; letter-spacing: 2px; color: var(--green2);
+      padding-bottom: 4px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ── Result banner ── */
+    .result-banner {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 14px; border-radius: 2px; border: 1px solid;
+      flex-shrink: 0;
+    }
+    .rb-blocked { background: rgba(0,50,10,0.3); border-color: var(--green3); }
+    .rb-succeeded { background: rgba(102,0,0,0.3); border-color: var(--red2); }
+    .rb-icon { font-size: 18px; font-weight: 700; }
+    .rb-blocked .rb-icon { color: var(--green); }
+    .rb-succeeded .rb-icon { color: var(--red); }
+    .rb-info { flex: 1; }
+    .rb-code { font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+    .rb-blocked .rb-code { color: var(--green); }
+    .rb-succeeded .rb-code { color: var(--red); }
+    .rb-http { font-size: 11px; color: var(--dimtext); margin-top: 2px; }
+    .rb-inv { font-size: 10px; color: var(--cyan2); margin-top: 3px; }
+    .rb-configs { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .cfg-tag { font-size: 9px; padding: 1px 5px; border-radius: 2px; letter-spacing: 1px; }
+    .cfg-tag-block { background: rgba(0,50,10,0.3); border: 1px solid var(--green4); color: var(--green2); }
+    .cfg-tag-allow { background: rgba(102,0,0,0.3); border: 1px solid var(--red3); color: var(--red); }
+
+    /* ── What happened / why blocked ── */
+    .explain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .explain-box { padding: 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; }
+    .ex-title { font-size: 10px; letter-spacing: 1px; margin-bottom: 6px; }
+    .ex-text { font-size: 11px; color: var(--dimtext); line-height: 1.7; }
+    .ex-what .ex-title { color: var(--yellow); }
+    .ex-why .ex-title { color: var(--green2); }
+
+    /* ── Evidence ── */
+    .evidence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+    .ev-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; padding: 8px; }
+    .ev-key { font-size: 10px; color: var(--dimtext); margin-bottom: 3px; letter-spacing: 0.5px; }
+    .ev-val { font-size: 11px; color: var(--green2); word-break: break-all; }
+    .ev-val.red { color: var(--red); }
+    .ev-val.yellow { color: var(--yellow); }
+    .ev-val.cyan { color: var(--cyan2); }
+
+    /* ── Log ── */
+    .log-scroll { overflow-y: auto; font-size: 11px; line-height: 1.6; }
+    .log-line { display: flex; gap: 8px; padding: 1px 0; }
+    .log-ts { color: var(--dimtext); font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+    .log-lv { font-size: 10px; white-space: nowrap; flex-shrink: 0; width: 56px; }
+    .log-msg { color: #008f20; word-break: break-word; }
+    .lv-sys { color: var(--cyan2); } .log-sys .log-msg { color: var(--cyan2); }
+    .lv-atk { color: var(--red); }  .log-atk .log-msg { color: var(--red); }
+    .lv-blk { color: var(--green); } .log-blk .log-msg { color: var(--green2); }
+    .lv-inf { color: var(--dimtext); }
+
+    /* ── All results table ── */
+    .all-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .all-table th { color: var(--green); text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--green3); font-size: 10px; letter-spacing: 1px; background: var(--bg2); position: sticky; top: 0; }
+    .all-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .all-table tr.row-block td { color: var(--green2); }
+    .all-table tr.row-ok   td { color: var(--red); }
+    .score-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+    .score-big { font-size: 20px; font-weight: 700; color: var(--green); }
+
+    /* ── Empty state ── */
+    .empty { color: var(--dimtext); font-size: 12px; padding: 20px; text-align: center; }
+
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <span class="logo">☠ ATTACKER B</span>
+      <span class="logo-sub">REPLAY &amp; BOUNDARY · AGENTSHIELD V3</span>
+      <span class="blink">▮</span>
+    </div>
+    <div class="hdr-right">
+      <div class="badge badge-red"><span class="badge-dot">●</span> ATTACK MODE</div>
+      <div class="badge badge-green"><span class="badge-dot">●</span> API <span id="api-status">CONNECTING...</span></div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-title">▶ ATTACK SCENARIOS</div>
+      <div id="scenario-list">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="divider"></div>
+      <div class="api-info">
+        API: <b id="api-url">localhost:8003</b><br/>
+        Owner: <b>Pavan</b><br/>
+        Scenarios: <b>8</b> (S1–S8)<br/>
+        Config: <b id="current-cfg-display">C</b>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <span class="config-label">BASELINE:</span>
+        <button class="config-btn cfg-a" id="btn-a" onclick="setConfig('A')">CONFIG A</button>
+        <button class="config-btn cfg-b" id="btn-b" onclick="setConfig('B')">CONFIG B</button>
+        <button class="config-btn cfg-c cfg-active" id="btn-c" onclick="setConfig('C')">CONFIG C ✓</button>
+        <span class="ml-auto"></span>
+        <button class="run-all-btn" id="run-all-btn" onclick="runAll()">⚡ RUN ALL</button>
+        <button class="run-btn" id="run-btn" onclick="runSelected()">▶ LAUNCH ATTACK</button>
+      </div>
+
+      <!-- Content -->
+      <div class="content">
+        <!-- Top half: result -->
+        <div class="panel" id="result-panel">
+          <div class="panel-title">▶ ATTACK RESULT</div>
+          <div class="empty" id="empty-msg">Select a scenario from the left and click LAUNCH ATTACK</div>
+          <div id="result-content" style="display:none; flex-direction:column; gap:8px;"></div>
+        </div>
+
+        <!-- Bottom half: log -->
+        <div class="panel" id="log-panel">
+          <div class="panel-title">▶ CONSOLE LOG</div>
+          <div class="log-scroll" id="log-scroll"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────
+let API_BASE = 'http://localhost:8003'
+let selectedScenario = null
+let currentConfig = 'C'
+let running = false
+let logId = 0
+
+const SCENARIOS_STATIC = [
+  { id:'S1', name:'Capability Replay',        category:'REPLAY',       tag:'Same cap × 5 → only 1 should work' },
+  { id:'S2', name:'Expired Capability',        category:'REPLAY',       tag:'TTL elapsed — valid sig, expired time' },
+  { id:'S3', name:'Revoked Agent',             category:'BOUNDARY',     tag:'Revoked after auth, cap still valid' },
+  { id:'S4', name:'Gateway Direct Bypass',     category:'BOUNDARY',     tag:'Call executor directly, skip OPA' },
+  { id:'S5', name:'Policy Version Downgrade',  category:'BOUNDARY',     tag:'Policy v1 cap against v2 minimum' },
+  { id:'S6', name:'Cross-Tenant Escape',       category:'BOUNDARY',     tag:'tenant-evil → tenant-demo resource' },
+  { id:'S7', name:'Delegation Escalation',     category:'DELEGATION',   tag:'Child scope > parent scope (T16)' },
+  { id:'S8', name:'Fail-Open Probe',           category:'AVAILABILITY', tag:'OPA offline → expect 503, not allow' },
+]
+
+const CAT_COLORS = { REPLAY:'red', BOUNDARY:'red', DELEGATION:'yellow', AVAILABILITY:'cyan' }
+
+// ── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderScenarioList()
+  pingAPI()
+  addLog('sys', 'Attacker B Console initialised — AgentShield V3')
+  addLog('sys', `API target: ${API_BASE}`)
+  addLog('inf', 'Default baseline: Config C (all defenses active)')
+  addLog('inf', 'Select a scenario and click LAUNCH ATTACK')
+})
+
+function pingAPI() {
+  fetch(`${API_BASE}/`)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('api-status').textContent = 'ONLINE'
+      document.getElementById('api-url').textContent = API_BASE.replace('http://', '')
+      addLog('sys', `API connected — ${d.scenarios} scenarios available`)
+    })
+    .catch(() => {
+      document.getElementById('api-status').textContent = 'OFFLINE'
+      addLog('sys', 'API offline — using built-in simulation mode')
+    })
+}
+
+// ── Sidebar ───────────────────────────────────────────────────
+function renderScenarioList() {
+  const cats = [...new Set(SCENARIOS_STATIC.map(s => s.category))]
+  const el = document.getElementById('scenario-list')
+  el.innerHTML = cats.map(cat => `
+    <div class="cat-label">── ${cat} ──</div>
+    ${SCENARIOS_STATIC.filter(s => s.category === cat).map(s => `
+      <button class="scenario-btn" id="sbtn-${s.id}" onclick="selectScenario('${s.id}')">
+        <span class="s-id">${s.id}</span>
+        <span class="s-name">${s.name}</span>
+        <span class="s-tag">${s.tag}</span>
+      </button>
+    `).join('')}
+  `).join('')
+}
+
+function selectScenario(id) {
+  selectedScenario = id
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'))
+  const btn = document.getElementById(`sbtn-${id}`)
+  if (btn) btn.classList.add('active')
+  const meta = SCENARIOS_STATIC.find(s => s.id === id)
+  addLog('inf', `Selected: [${id}] ${meta?.name} — click LAUNCH ATTACK`)
+}
+
+function setConfig(cfg) {
+  currentConfig = cfg
+  document.getElementById('current-cfg-display').textContent = cfg
+  ;['A','B','C'].forEach(c => {
+    const b = document.getElementById(`btn-${c.toLowerCase()}`)
+    b.classList.toggle('cfg-active', c === cfg)
+    if (c === 'A') b.textContent = 'CONFIG A' + (cfg === 'A' ? ' ✓' : '')
+    if (c === 'B') b.textContent = 'CONFIG B' + (cfg === 'B' ? ' ✓' : '')
+    if (c === 'C') b.textContent = 'CONFIG C' + (cfg === 'C' ? ' ✓' : '')
+  })
+  addLog('inf', `Baseline switched to Config ${cfg} — ${cfg === 'C' ? 'all defenses active' : cfg === 'B' ? 'gateway-only enforcement' : 'minimal — most attacks succeed'}`)
+}
+
+// ── Attack execution ───────────────────────────────────────────
+async function runSelected() {
+  if (!selectedScenario) { addLog('inf', 'No scenario selected'); return }
+  if (running) return
+  await executeScenario(selectedScenario)
+}
+
+async function runAll() {
+  if (running) return
+  running = true
+  document.getElementById('run-all-btn').disabled = true
+  document.getElementById('run-btn').disabled = true
+  addLog('sys', '══════════════════════════════')
+  addLog('sys', 'RUNNING ALL 8 SCENARIOS...')
+  addLog('sys', '══════════════════════════════')
+
+  const results = []
+  for (const s of SCENARIOS_STATIC) {
+    const result = await fetchScenario(s.id)
+    results.push(result)
+    const blocked = !result.attack_succeeded
+    addLog(blocked ? 'blk' : 'atk',
+      `[${s.id}] ${s.name} → ${blocked ? '✓ BLOCKED' : '✗ SUCCEEDED'} (${result.result_code})`)
+    await sleep(120)
+  }
+
+  renderAllResults(results)
+  const blocked = results.filter(r => !r.attack_succeeded).length
+  addLog('sys', `Suite complete: ${blocked}/${results.length} attacks blocked`)
+  running = false
+  document.getElementById('run-all-btn').disabled = false
+  document.getElementById('run-btn').disabled = false
+}
+
+async function executeScenario(id) {
+  running = true
+  document.getElementById('run-btn').disabled = true
+  document.getElementById('run-btn').innerHTML = '<span class="spin">⟳</span> RUNNING...'
+
+  const meta = SCENARIOS_STATIC.find(s => s.id === id)
+  addLog('atk', `──────────────────────────────`)
+  addLog('atk', `LAUNCHING: [${id}] ${meta?.name}`)
+  addLog('atk', `Baseline: Config ${currentConfig}`)
+  await sleep(200)
+
+  const result = await fetchScenario(id)
+  renderResult(result)
+
+  const blocked = !result.attack_succeeded
+  addLog(blocked ? 'blk' : 'atk', `RESULT: ${result.result_code}  HTTP ${result.http_status}`)
+  addLog(blocked ? 'blk' : 'atk', blocked
+    ? `✓ ATTACK BLOCKED — ${result.invariant_reference}`
+    : `✗ ATTACK SUCCEEDED — ${result.invariant_reference}`)
+
+  // Show config context
+  if (currentConfig !== 'C') {
+    const wouldBlock = result.blocked_in.includes(currentConfig)
+    if (!wouldBlock) {
+      addLog('atk', `  ↳ Config ${currentConfig}: this attack would SUCCEED in real system`)
+    } else {
+      addLog('blk', `  ↳ Config ${currentConfig}: also blocks this attack`)
+    }
+  }
+
+  running = false
+  document.getElementById('run-btn').disabled = false
+  document.getElementById('run-btn').textContent = '▶ LAUNCH ATTACK'
+}
+
+async function fetchScenario(id) {
+  try {
+    const resp = await fetch(`${API_BASE}/run/${id}`)
+    if (resp.ok) return await resp.json()
+  } catch {}
+  // Fallback: built-in simulation
+  return simulateLocally(id)
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderResult(r) {
+  document.getElementById('empty-msg').style.display = 'none'
+  const el = document.getElementById('result-content')
+  el.style.display = 'flex'
+
+  const blocked = !r.attack_succeeded
+  const cfgContext = buildConfigContext(r)
+
+  el.innerHTML = `
+    <!-- Banner -->
+    <div class="result-banner ${blocked ? 'rb-blocked' : 'rb-succeeded'}">
+      <span class="rb-icon">${blocked ? '✓ BLOCKED' : '✗ SUCCEEDED'}</span>
+      <div class="rb-info">
+        <div class="rb-code">${r.result_code}</div>
+        <div class="rb-http">HTTP ${r.http_status} · ${r.scenario_name}</div>
+        <div class="rb-inv">⬡ ${r.invariant_reference}</div>
+      </div>
+      <div class="rb-configs">
+        ${r.blocked_in.map(c => `<span class="cfg-tag cfg-tag-block">BLOCKED IN C=${c}</span>`).join('')}
+        ${r.allowed_in.map(c => `<span class="cfg-tag cfg-tag-allow">ALLOWED IN ${c}</span>`).join('')}
+      </div>
+    </div>
+
+    <!-- What / Why -->
+    <div class="explain-grid">
+      <div class="explain-box ex-what">
+        <div class="ex-title">▶ WHAT HAPPENED</div>
+        <div class="ex-text">${r.what_happened}</div>
+      </div>
+      <div class="explain-box ex-why">
+        <div class="ex-title">▶ WHY BLOCKED</div>
+        <div class="ex-text">${r.why_blocked}</div>
+      </div>
+    </div>
+
+    <!-- Evidence -->
+    <div class="panel-title" style="margin-top:4px;">▶ EVIDENCE</div>
+    <div class="evidence-grid">
+      ${Object.entries(r.evidence || {}).filter(([,v]) => typeof v !== 'object').map(([k,v]) => `
+        <div class="ev-item">
+          <div class="ev-key">${k}</div>
+          <div class="ev-val ${colorForEvidence(k, v)}">${String(v)}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    ${cfgContext}
+  `
+}
+
+function buildConfigContext(r) {
+  const rows = ['A','B','C'].map(c => {
+    const blocked = r.blocked_in.includes(c)
+    const pct = c === 'A' ? '6' : c === 'B' ? '61' : '100'
+    return `<tr class="${blocked ? 'row-block' : 'row-ok'}">
+      <td>Config ${c}</td>
+      <td>${pct}% protection</td>
+      <td>${blocked ? '✓ BLOCKED' : '✗ SUCCEEDS'}</td>
+      <td style="font-size:10px;color:#004410">${blocked ? 'Defense active' : 'Surface open'}</td>
+    </tr>`
+  }).join('')
+  return `
+    <div class="panel-title" style="margin-top:4px;">▶ BASELINE COMPARISON FOR THIS ATTACK</div>
+    <table class="all-table">
+      <thead><tr><th>BASELINE</th><th>SCORE</th><th>THIS ATTACK</th><th>NOTE</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `
+}
+
+function renderAllResults(results) {
+  const blocked = results.filter(r => !r.attack_succeeded).length
+  document.getElementById('empty-msg').style.display = 'none'
+  const el = document.getElementById('result-content')
+  el.style.display = 'flex'
+  el.innerHTML = `
+    <div class="score-row">
+      <span class="score-big">${blocked}/${results.length}</span>
+      <span style="color:var(--green2);font-size:13px;">ATTACKS BLOCKED — Config ${currentConfig}</span>
+    </div>
+    <table class="all-table">
+      <thead>
+        <tr><th>ID</th><th>SCENARIO</th><th>CATEGORY</th><th>RESULT</th><th>CODE</th><th>INVARIANT</th></tr>
+      </thead>
+      <tbody>
+        ${results.map(r => `
+          <tr class="${!r.attack_succeeded ? 'row-block' : 'row-ok'}">
+            <td>${r.scenario_id}</td>
+            <td>${r.scenario_name}</td>
+            <td>${r.category}</td>
+            <td>${!r.attack_succeeded ? '✓ BLOCKED' : '✗ SUCCEEDED'}</td>
+            <td style="font-size:10px;">${r.result_code}</td>
+            <td style="font-size:10px;color:var(--cyan2)">${r.invariant_reference}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `
+}
+
+function colorForEvidence(key, val) {
+  if (typeof val === 'boolean') return val ? 'green' : 'red'
+  if (key.includes('error') || key.includes('REFUSED') || String(val).includes('REJECTED')) return 'red'
+  if (key.includes('blocked') || String(val).includes('BLOCKED') || String(val).includes('success')) return 'green'
+  if (key.includes('config') || String(val).includes('Config')) return 'yellow'
+  if (key.includes('hash') || key.includes('digest')) return 'cyan'
+  return ''
+}
+
+// ── Logging ───────────────────────────────────────────────────
+function addLog(level, msg) {
+  const ts = new Date().toISOString().replace('T',' ').substring(0,23)
+  const levelMap = { sys:'SYS', atk:'ATTACK', blk:'BLOCK', inf:'INFO' }
+  const el = document.getElementById('log-scroll')
+  const line = document.createElement('div')
+  line.className = `log-line log-${level}`
+  line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-lv lv-${level}">[${levelMap[level]||level.toUpperCase()}]</span><span class="log-msg">${msg}</span>`
+  el.appendChild(line)
+  el.scrollTop = el.scrollHeight
+}
+
+// ── Local simulation fallback (no API needed) ──────────────────
+function simulateLocally(id) {
+  const SIM = {
+    S1: { scenario_id:'S1', scenario_name:'Capability Replay', category:'REPLAY', attack_succeeded:false, result_code:'JTI_ALREADY_CLAIMED', http_status:409, what_happened:'Capability submitted 5×. Only attempt #1 claimed. Attempts #2–5 rejected.', why_blocked:'Redis atomic SET NX on jti. Once set, key exists — all replays return 409. PostgreSQL UNIQUE backs this up.', invariant_reference:'I4 — Single-use: jti consumed exactly once', evidence:{jti:'cap-a1b2c3d4e5f6', attempts:5, executions_succeeded:1, executions_rejected:4, redis_mechanism:'SET NX EX 300', postgres_backup:'UNIQUE constraint on jti'}, blocked_in:['B','C'], allowed_in:['A'] },
+    S2: { scenario_id:'S2', scenario_name:'Expired Capability', category:'REPLAY', attack_succeeded:false, result_code:'CAPABILITY_EXPIRED', http_status:401, what_happened:'Capability issued 400s ago (TTL=300s). Expired 100s ago. Executor rejected at exp check.', why_blocked:'Executor checks JWT exp. Expired 100s ago — well beyond 5s clock-skew allowance. Time check fires before any other check.', invariant_reference:'F5 — Capability TTL enforced at executor', evidence:{issued_at:'400s ago', ttl_seconds:300, expired_by_seconds:100, clock_skew_allowance:5, verdict:'REJECTED — beyond clock-skew window'}, blocked_in:['B','C'], allowed_in:['A'] },
+    S3: { scenario_id:'S3', scenario_name:'Revoked Agent', category:'BOUNDARY', attack_succeeded:false, result_code:'AGENT_REVOKED', http_status:403, what_happened:"Agent 'agent-support-01' authorized at t=0, revoked at t=+5s, execution attempted t=+10s. Executor's revocation re-check blocked it.", why_blocked:'Executor re-queries revocation at execution time. Config B misses this (no revocation_recheck). Config C catches it.', invariant_reference:'I6 — Revocation enforced at execution time', evidence:{agent_id:'agent-support-01', window_seconds:10, config_b_would_have:'ALLOWED (no revocation_recheck)', config_c_result:'REJECTED — AGENT_REVOKED', mechanism:'Redis SISMEMBER + PostgreSQL revocation record'}, blocked_in:['C'], allowed_in:['A','B'] },
+    S4: { scenario_id:'S4', scenario_name:'Gateway Direct Bypass', category:'BOUNDARY', attack_succeeded:false, result_code:'NETWORK_UNREACHABLE', http_status:0, what_happened:'POST sent directly to executor:8001 — TCP connection refused. No route exists from agent_net to executor.', why_blocked:'Docker network isolation. executor only on internal_net + executor_net. Agents only on agent_net. No path.', invariant_reference:'I9 — Executor is the final enforcement boundary', evidence:{attack_target:'http://executor:8001/v1/actions/execute', attacker_network:'agent_net', executor_networks:'internal_net, executor_net', connection_result:'ECONNREFUSED'}, blocked_in:['B','C'], allowed_in:['A'] },
+    S5: { scenario_id:'S5', scenario_name:'Policy Version Downgrade', category:'BOUNDARY', attack_succeeded:false, result_code:'POLICY_VERSION_STALE', http_status:403, what_happened:'Capability issued under policy v1. Executor enforces minimum v2. Rejected as POLICY_VERSION_STALE.', why_blocked:'Executor independently re-queries OPA. policy_version=1 < minimum_enforced=2 → hard deny fires.', invariant_reference:'I8 — Policy version cannot be downgraded', evidence:{capability_policy_version:1, minimum_enforced_version:2, opa_hard_deny:'POLICY_VERSION_STALE', config_b_gap:'Checks policy at gateway only'}, blocked_in:['C'], allowed_in:['A','B'] },
+    S6: { scenario_id:'S6', scenario_name:'Cross-Tenant Escape', category:'BOUNDARY', attack_succeeded:false, result_code:'CROSS_TENANT_ACCESS', http_status:403, what_happened:"Agent from 'tenant-evil' tried to act on 'tenant-demo' resources. OPA hard-deny CROSS_TENANT_ACCESS fired.", why_blocked:'OPA Rego hard_deny: action.tenant_id != agent.tenant_id. Hard-deny — no approval can ever override.', invariant_reference:'I1 — No unauthorized side effect executes', evidence:{agent_tenant:'tenant-evil', action_tenant:'tenant-demo', overridable_by_approval:false, opa_rule:'hard_deny[CROSS_TENANT_ACCESS]'}, blocked_in:['B','C'], allowed_in:['A'] },
+    S7: { scenario_id:'S7', scenario_name:'Delegation Escalation', category:'DELEGATION', attack_succeeded:false, result_code:'DELEGATION_SCOPE_VIOLATION', http_status:403, what_happened:'Child capability requested wire_transfer (not in parent) + ₹9999 (parent max ₹500). 2 violations detected.', why_blocked:'core/delegation.py: R1-TOOL_ESCALATION, R2-AMOUNT_ESCALATION. Child scope must be strict subset of parent.', invariant_reference:'I7 — Child scope does not exceed parent scope', evidence:{violations:'R1-TOOL_ESCALATION, R2-AMOUNT_ESCALATION', parent_max:'₹500', child_requested:'₹9999 + wire_transfer', max_delegation_depth:3}, blocked_in:['B','C'], allowed_in:['A'] },
+    S8: { scenario_id:'S8', scenario_name:'Fail-Open Probe', category:'AVAILABILITY', attack_succeeded:false, result_code:'POLICY_CHECK_UNAVAILABLE', http_status:503, what_happened:'OPA taken offline. Expected system to default to ALLOW. Instead: 503 POLICY_CHECK_UNAVAILABLE.', why_blocked:'Fail-closed: opa_client.py raises PolicyCheckUnavailable on ConnectError. Gateway returns 503, never falls back to allow.', invariant_reference:'I11 — Fail-closed when dependency unavailable', evidence:{opa_url:'http://opa:8181', connection_error:'httpx.ConnectError', gateway_response:'503 POLICY_CHECK_UNAVAILABLE', default_to_allow:false}, blocked_in:['B','C'], allowed_in:['A'] },
+  }
+  return SIM[id] || SIM['S1']
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+version: "3.9"
+
+# AgentShield V2 — Docker Compose
+# Network topology enforces security boundaries (ADR-007):
+#   agent_net    → gateway only (agent-facing)
+#   internal_net → gateway, executor, opa, redis, postgres
+#   executor_net → executor, mock_tool ONLY
+#
+# The AI agent cannot reach mock_tool or executor directly.
+# The gateway cannot reach mock_tool.
+# Only the executor can reach mock_tool.
+
+networks:
+  agent_net:
+    driver: bridge
+  internal_net:
+    driver: bridge
+    internal: true
+  executor_net:
+    driver: bridge
+    internal: true
+
+services:
+
+  # ─── Infrastructure ──────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agentshield}
+      POSTGRES_USER: ${POSTGRES_USER:-agentshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentshield}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  opa:
+    image: openpolicyagent/opa:0.68.0
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-level=info"
+      - "/policies"
+    volumes:
+      - ./policy:/policies:ro
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8181/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── Mock Protected Tool (executor_net ONLY) ─────────────────
+
+  mock_tool:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.mock_tool
+    environment:
+      PORT: 8002
+    networks:
+      - executor_net   # ONLY on executor_net — not reachable by agent or gateway
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8002/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── Protected Executor (internal_net + executor_net) ────────
+
+  executor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.executor
+    env_file: .env
+    environment:
+      SERVICE_NAME: executor
+      SERVICE_PORT: 8001
+      MOCK_TOOL_URL: http://mock_tool:8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+      mock_tool:
+        condition: service_healthy
+    networks:
+      - internal_net   # can reach redis, postgres, opa
+      - executor_net   # can reach mock_tool
+    # NOT on agent_net — agents cannot reach executor directly
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── API Gateway (agent_net + internal_net) ──────────────────
+
+  gateway:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.gateway
+    env_file: .env
+    environment:
+      SERVICE_NAME: gateway
+      SERVICE_PORT: 8000
+      EXECUTOR_URL: http://executor:8001
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+      executor:
+        condition: service_healthy
+    networks:
+      - agent_net      # externally accessible (agent-facing)
+      - internal_net   # can reach redis, postgres, opa, executor
+    # NOT on executor_net — gateway cannot reach mock_tool directly
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── React Frontend ──────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      REACT_APP_API_URL: http://localhost:${GATEWAY_PORT:-8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - gateway
+    networks:
+      - agent_net
+
+volumes:
+  postgres_data:
+  redis_data:

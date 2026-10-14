@@ -1,0 +1,54 @@
+.tm-tab { display:flex; flex-direction:column; height:100%; overflow:hidden; padding:10px 14px; gap:8px; }
+
+.tm-header { display:flex; align-items:center; gap:16px; flex-shrink:0; }
+.tm-title { font-size:10px; letter-spacing:2px; color:var(--green-bright); }
+.tm-stats { display:flex; gap:12px; }
+.tm-stat { display:flex; flex-direction:column; align-items:center; gap:1px; }
+.ts-val { font-size:18px; font-weight:700; line-height:1; }
+.ts-label { font-size:9px; letter-spacing:1px; color:var(--text-dim); }
+.ts-red { color:var(--red-bright); }
+.ts-yellow { color:var(--yellow-bright); }
+.ts-green { color:var(--green-bright); }
+
+.tm-filters { display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; }
+.tf-label { font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+.tf-btn { padding:3px 8px; border-radius:2px; font-family:inherit; font-size:10px; cursor:pointer; border:1px solid var(--border-green); color:var(--text-dim); background:transparent; letter-spacing:0.5px; transition:all 0.1s; }
+.tf-btn:hover { border-color:var(--green-mid); color:var(--green-mid); }
+.tf-active { border-color:var(--green-bright); color:var(--green-bright); background:rgba(0,255,65,0.05); }
+.tf-cfg-a { color:var(--red-mid); border-color:#440000; }
+.tf-cfg-a.tf-active { color:var(--red-bright); border-color:var(--red-bright); background:rgba(255,51,51,0.06); }
+.tf-cfg-b { color:var(--yellow-mid); border-color:#4a3800; }
+.tf-cfg-b.tf-active { color:var(--yellow-bright); border-color:var(--yellow-bright); background:rgba(255,204,0,0.06); }
+.tf-cfg-c { color:var(--green-dim); border-color:var(--green-dark); }
+.tf-cfg-c.tf-active { color:var(--green-bright); border-color:var(--green-bright); background:rgba(0,255,65,0.06); }
+
+.tm-table-wrap { flex:1; overflow:auto; min-height:0; }
+.tm-table { width:100%; border-collapse:collapse; font-size:11px; }
+.tm-table th { color:var(--green-bright); text-align:left; padding:5px 8px; border-bottom:1px solid var(--border-bright); font-size:9px; letter-spacing:1px; background:var(--bg-secondary); position:sticky; top:0; z-index:1; white-space:nowrap; }
+.tm-table td { padding:5px 8px; border-bottom:1px solid var(--border-green); vertical-align:middle; }
+.tm-row { transition:background 0.1s; }
+.tm-row-hover td { background:rgba(0,255,65,0.03); }
+.td-id { color:var(--text-dim); font-size:10px; white-space:nowrap; }
+.td-name { color:var(--text-primary); font-weight:600; white-space:nowrap; }
+.td-method { color:var(--text-dim); font-size:10px; max-width:200px; }
+.td-defense { color:var(--text-secondary); font-size:10px; max-width:220px; }
+.td-inv { color:var(--cyan-mid); font-size:10px; white-space:nowrap; }
+
+.plane-tag { font-size:9px; padding:1px 5px; border-radius:2px; border:1px solid; white-space:nowrap; }
+.sev-tag { font-size:9px; padding:1px 5px; border-radius:2px; letter-spacing:1px; white-space:nowrap; }
+.sev-critical { background:rgba(102,0,0,0.3); border:1px solid var(--red-dim); color:var(--red-bright); }
+.sev-high { background:rgba(102,77,0,0.3); border:1px solid #4a3800; color:var(--yellow-bright); }
+.sev-medium { background:rgba(0,40,80,0.3); border:1px solid #003366; color:var(--cyan-mid); }
+
+.block-tag { font-size:9px; padding:1px 5px; border-radius:2px; letter-spacing:1px; white-space:nowrap; }
+.block-yes { background:rgba(0,50,10,0.3); border:1px solid var(--green-dark); color:var(--green-bright); }
+.block-no { background:rgba(102,0,0,0.3); border:1px solid var(--red-dim); color:var(--red-bright); }
+
+.tm-coverage { flex-shrink:0; border-top:1px solid var(--border-green); padding-top:8px; }
+.tc-title { font-size:10px; letter-spacing:2px; color:var(--green-bright); margin-bottom:6px; }
+.tc-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.tc-label { font-size:11px; color:var(--text-secondary); width:60px; flex-shrink:0; }
+.tc-bar-wrap { width:200px; height:8px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden; flex-shrink:0; }
+.tc-bar { height:100%; border-radius:2px; transition:width 0.4s; }
+.tc-pct { font-size:11px; width:50px; flex-shrink:0; }
+.tc-detail { font-size:11px; }

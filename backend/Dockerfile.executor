@@ -1,0 +1,25 @@
+# AgentShield V2 — Executor Dockerfile
+# Owner: Alok (build) | Pavan (network constraints)
+#
+# This service runs on internal_net + executor_net.
+# It is the FINAL SECURITY ENFORCEMENT BOUNDARY.
+# Agents cannot reach this directly (not on agent_net).
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ ./app/
+
+ENV PYTHONUNBUFFERED=1
+ENV SERVICE_NAME=executor
+ENV SERVICE_PORT=8001
+
+EXPOSE 8001
+
+# Alok: replace with real executor app entry point
+# CMD ["uvicorn", "app.main:executor_app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["python", "-c", "print('Executor service - Alok implements main.py'); import time; time.sleep(9999)"]
