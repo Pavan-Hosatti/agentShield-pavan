@@ -14,6 +14,7 @@ import webbrowser
 
 PORT = 8888
 PROJECT_DIR = r"D:\reva cyber hack-pavan\agentshield"
+BACKEND_DIR = os.path.join(PROJECT_DIR, "backend")
 SCRIPTS_DIR = os.path.join(PROJECT_DIR, "demo_scripts")
 
 DEMOS = [
@@ -25,6 +26,7 @@ DEMOS = [
         "title": "Start All Services",
         "subtitle": "Pre-flight checks + cryptographic proof bundle + Attacker B REST API on :8003",
         "cmd": "powershell -ExecutionPolicy Bypass -File start_pavan.ps1",
+        "cwd": PROJECT_DIR,
         "duration": "~3s",
         "spec": "Automated system startup sequence. Validates 10 pre-flight security invariant checks, constructs the HMAC-signed cryptographic audit proof bundle certifying mathematical integrity, and initializes the Attacker B REST boundary endpoint on port 8003.",
     },
@@ -36,6 +38,7 @@ DEMOS = [
         "title": "8 Attacks All Blocked Live",
         "subtitle": "Capability replay, expired token, revoked agent, direct bypass, policy downgrade, cross-tenant, delegation escalation, fail-open probe",
         "cmd": "python -m core.scenarios.replay_scenarios",
+        "cwd": PROJECT_DIR,
         "duration": "~1s",
         "spec": "Adversarial replay suite covering 8 high-severity attack vectors: atomic capability replay, token expiration TTL enforcement, runtime agent revocation re-checks, perimeter network bypass attempts, policy downgrade prevention, cross-tenant isolation, delegation privilege bounds, and fail-closed availability guarantees.",
     },
@@ -47,6 +50,7 @@ DEMOS = [
         "title": "Baseline Protection Comparison",
         "subtitle": "Quantified security posture: Config A (6%) vs Config B (61%) vs Config C (100% closed)",
         "cmd": "python -m core.baselines",
+        "cwd": PROJECT_DIR,
         "duration": "<1s",
         "spec": "Comparative empirical analysis across 18 documented threat surfaces. Demonstrates protection gap: Config A (naive baseline: 6% closed), Config B (typical enterprise JWT/rate-limiting: 61% closed), and Config C (AgentShield full zero-trust posture: 100% closed).",
     },
@@ -58,6 +62,7 @@ DEMOS = [
         "title": "Policy Mutation Tests",
         "subtitle": "5 malicious OPA policy tampering mutations injected - 5/5 caught before deployment",
         "cmd": "python -m core.policy_mutation",
+        "cwd": PROJECT_DIR,
         "duration": "<1s",
         "spec": "Static semantic validator testing for policy integrity. Evaluates system resilience against deliberate rule tampering including default-deny removal, wildcard permit injections, revoked-agent deny stripping, and approval digest bypasses. All 5 mutations intercepted prior to deployment.",
     },
@@ -69,6 +74,7 @@ DEMOS = [
         "title": "Fail-Closed State Machine",
         "subtitle": "Invalid transition attempts (e.g. skip claim) mathematically forced into REJECTED",
         "cmd": "python -m core.state_machine",
+        "cwd": PROJECT_DIR,
         "duration": "<1s",
         "spec": "Deterministic state transition model governing autonomous execution lifecycles. Strictly enforces valid sequential state transitions: PENDING -> EVALUATING -> AUTHORIZED -> CLAIMING -> EXECUTING -> SUCCEEDED. Any out-of-order execution attempt forces immediate fail-closed REJECTED state.",
     },
@@ -80,6 +86,7 @@ DEMOS = [
         "title": "Delegation Rules Enforcement",
         "subtitle": "Child agent permissions enforced as strict subset of parent - 6 escalation rules verified",
         "cmd": "python -m core.delegation",
+        "cwd": PROJECT_DIR,
         "duration": "<1s",
         "spec": "Sub-agent delegation boundary enforcement ensuring sub-agents operate strictly within a mathematical subset of parent authority. Enforces 7 discrete invariant checks across tool definitions, transaction limits, TTL bounds, tenant identities, deployment environments, and delegation hierarchy depths.",
     },
@@ -91,6 +98,7 @@ DEMOS = [
         "title": "Generate Proof Bundle",
         "subtitle": "Cryptographically sealed HMAC audit certificate verifying 11 invariants in <1s",
         "cmd": "python -m core.proof_export --out proof_bundle.json",
+        "cwd": PROJECT_DIR,
         "duration": "<1s",
         "spec": "Generates a machine-verifiable cryptographic proof certificate in under 1 second. Compiles SHA-256 state hashes, OPA Rego policy digests, and invariant execution claims into a unified JSON structure secured by an HMAC signature for tamper detection.",
     },
@@ -102,6 +110,7 @@ DEMOS = [
         "title": "Verify Proof Bundle",
         "subtitle": "Independent HMAC seal and invariant claims verification for third-party auditing",
         "cmd": "python -m core.proof_export --verify proof_bundle.json",
+        "cwd": PROJECT_DIR,
         "duration": "<1s",
         "spec": "Independent verification utility designed for third-party auditors. Parses exported proof bundles, re-evaluates HMAC integrity, checks invariant attestations against known specifications, and confirms zero-tampering without requiring execution of the live environment.",
     },
@@ -113,6 +122,7 @@ DEMOS = [
         "title": "10 Pre-Flight Security Checks",
         "subtitle": "Automated verification of digests, hard-deny rules, audit chain, schemas, and Ed25519 keys",
         "cmd": "python -m app.security.invariant_checker --verbose",
+        "cwd": BACKEND_DIR,
         "duration": "~1s",
         "spec": "Comprehensive pre-deployment diagnostic evaluating 10 essential security primitives: action digest binding, hard-deny precedence, approval consumption state, audit log immutability, schema compliance, OPA rule validity, and cryptographic key validity.",
     },
@@ -124,6 +134,7 @@ DEMOS = [
         "title": "Run Full Test Suite (426 Tests)",
         "subtitle": "Unit, adversarial, integration, and scenario tests: 426 passed, 0 failures in 2.8s",
         "cmd": "python -m pytest tests/ -v",
+        "cwd": PROJECT_DIR,
         "duration": "~3s",
         "spec": "Complete automated verification suite containing 426 passing tests across unit boundaries, adversarial attack simulations, and integration workflows. Executes in under 3 seconds with 0 failures.",
     },
@@ -339,9 +350,7 @@ HTML_PAGE = """<!DOCTYPE html>
     background: var(--green) !important;
     border-color: var(--green) !important;
     color: #000 !important;
-    animation: btnFlash 0.6s infinite alternate;
   }
-  @keyframes btnFlash { from { opacity: 0.8; } to { opacity: 1; } }
 
   /* Toast Notification */
   .toast {
@@ -465,7 +474,7 @@ function renderCards() {
           <div class="card-sub">${d.subtitle}</div>
         </div>
         <div class="card-action-bar">
-          <button class="btn-launch" id="btn-${d.id}">
+          <button class="btn-launch" id="btn-${d.id}" onclick="event.stopPropagation(); launchDemo('${d.id}', event)">
             <span>⚡ EXECUTE VERIFICATION</span>
           </button>
         </div>
@@ -484,9 +493,10 @@ function selectSpec(idx) {
 }
 
 async function launchDemo(id, evt) {
+  if (evt) { evt.stopPropagation(); }
   const btn = document.getElementById(`btn-${id}`);
   const origText = btn.innerHTML;
-  btn.innerHTML = '<span>⏳ LAUNCHING CONSOLE...</span>';
+  btn.innerHTML = '<span>⏳ OPENING CONSOLE...</span>';
   btn.classList.add('btn-active');
 
   showToast(`Module ${id} Triggered`, 'Live verification window active on desktop.');
@@ -494,14 +504,18 @@ async function launchDemo(id, evt) {
   try {
     const res = await fetch(`/launch?id=${id}`);
     const data = await res.json();
-    setTimeout(() => {
-      btn.innerHTML = '<span>⚡ EXECUTE VERIFICATION</span>';
-      btn.classList.remove('btn-active');
-    }, 2500);
+    if (data.status === 'ok') {
+      showToast(`Module ${id} Running`, 'Console window is now executing on screen.');
+    } else {
+      showToast('Launch Alert', data.message || 'Error executing script.');
+    }
   } catch (err) {
-    showToast('Launch Error', 'Failed to trigger console service.');
-    btn.innerHTML = origText;
-    btn.classList.remove('btn-active');
+    showToast('Launch Error', 'Failed to reach dashboard server.');
+  } finally {
+    setTimeout(() => {
+      btn.innerHTML = origText;
+      btn.classList.remove('btn-active');
+    }, 2000);
   }
 }
 
@@ -545,23 +559,13 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Unknown demo id"}).encode("utf-8"))
                 return
 
-            ps1_file = os.path.join(SCRIPTS_DIR, f"{demo['id']}_{demo['name']}.ps1")
+            bat_file = os.path.join(SCRIPTS_DIR, f"{demo['id']}_{demo['name']}.bat")
+            cwd = demo.get("cwd", PROJECT_DIR)
             
-            # Launch in real interactive Windows console window
             try:
-                cmd_line = [
-                    "powershell.exe",
-                    "-NoExit",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    ps1_file,
-                ]
-                subprocess.Popen(
-                    cmd_line,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE,
-                    cwd=demo["cwd"],
-                )
+                # Use start to pop up a visible Windows console window
+                cmd = f'start "{demo["title"]}" "{bat_file}"'
+                subprocess.Popen(cmd, shell=True, cwd=cwd)
                 status = "ok"
                 msg = f"Launched verification for {demo['title']}"
             except Exception as e:
