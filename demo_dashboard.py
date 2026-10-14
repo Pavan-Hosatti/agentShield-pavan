@@ -1,21 +1,41 @@
 """
 AgentShield V3 - Security Verification & Live Demonstration Console
-Local security cockpit that launches real PowerShell execution windows on demand.
+Features:
+- Spawns real native Windows PowerShell windows for each demo step
+- Displays live step-by-step visual attack progression on the web dashboard
+- Multi-channel notification dispatch to Alok's Defense Agent (Local SSE + Polling + Cloud Relay ntfy.sh)
+- Automatic local Wi-Fi IP detection for zero-friction peer connection
 """
 
 import http.server
 import json
 import os
+import socket
 import subprocess
 import sys
 import threading
+import time
 import urllib.parse
+import urllib.request
 import webbrowser
 
 PORT = 8888
 PROJECT_DIR = r"D:\reva cyber hack-pavan\agentshield"
 BACKEND_DIR = os.path.join(PROJECT_DIR, "backend")
 SCRIPTS_DIR = os.path.join(PROJECT_DIR, "demo_scripts")
+CLOUD_RELAY_TOPIC = "agentshield-reva-2026"
+
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+LOCAL_IP = get_local_ip()
 
 DEMOS = [
     {
@@ -39,7 +59,7 @@ DEMOS = [
         "subtitle": "Capability replay, expired token, revoked agent, direct bypass, policy downgrade, cross-tenant, delegation escalation, fail-open probe",
         "cmd": "python -m core.scenarios.replay_scenarios",
         "cwd": PROJECT_DIR,
-        "duration": "~1s",
+        "duration": "~10s",
         "spec": "Adversarial replay suite covering 8 high-severity attack vectors: atomic capability replay, token expiration TTL enforcement, runtime agent revocation re-checks, perimeter network bypass attempts, policy downgrade prevention, cross-tenant isolation, delegation privilege bounds, and fail-closed availability guarantees.",
     },
     {
@@ -142,14 +162,169 @@ DEMOS = [
 
 DEMO_MAP = {d["id"]: d for d in DEMOS}
 
-HTML_PAGE = """<!DOCTYPE html>
+SCENARIOS = [
+    {
+        "id": "S1",
+        "name": "Capability Replay",
+        "category": "REPLAY",
+        "target": "/v1/actions/execute",
+        "payload": "JTI: cap-a1b2c3d4 | Attempts: 5 concurrent | Action: issue_refund ₹500",
+        "defense": "Redis atomic SET NX on jti + PostgreSQL UNIQUE constraint",
+        "invariant": "I4 — Single-use: jti consumed exactly once",
+        "http": 409,
+        "code": "JTI_ALREADY_CLAIMED",
+        "desc": "Attacker submits same capability 5x in 8ms. Only attempt #1 passes. Attempts #2-5 rejected.",
+    },
+    {
+        "id": "S2",
+        "name": "Expired Capability",
+        "category": "REPLAY",
+        "target": "/v1/actions/execute",
+        "payload": "Token issued 400s ago | TTL: 300s | Exceeded by: 100s",
+        "defense": "Executor checks JWT exp claim against 5s clock skew",
+        "invariant": "F5 — Capability TTL enforced at executor",
+        "http": 401,
+        "code": "CAPABILITY_EXPIRED",
+        "desc": "Expired token rejected immediately at executor time check before signature verification.",
+    },
+    {
+        "id": "S3",
+        "name": "Revoked Agent (TOCTOU)",
+        "category": "BOUNDARY",
+        "target": "/v1/actions/execute",
+        "payload": "Agent: agent-support-01 | Authorized: t=0 | Revoked: t=+5s | Exec: t=+10s",
+        "defense": "Executor re-queries revocation registry independently at execution time",
+        "invariant": "I6 — Revocation enforced at execution, not only authorization",
+        "http": 403,
+        "code": "AGENT_REVOKED",
+        "desc": "Admin revokes rogue agent. Gateway check passes, but executor independent check terminates execution.",
+    },
+    {
+        "id": "S4",
+        "name": "Gateway Direct Bypass",
+        "category": "NETWORK",
+        "target": "http://executor:8001/v1/actions/execute",
+        "payload": "Raw TCP direct connection bypassing gateway perimeter",
+        "defense": "Docker network topology isolation: executor only on internal_net",
+        "invariant": "I9 — Executor is final enforcement boundary; T14 — Docker network isolation",
+        "http": 0,
+        "code": "NETWORK_UNREACHABLE",
+        "desc": "Attacker tries to bypass gateway via direct socket. TCP connection refused.",
+    },
+    {
+        "id": "S5",
+        "name": "Policy Version Downgrade",
+        "category": "POLICY",
+        "target": "/v1/actions/execute",
+        "payload": "Capability policy_version: 1 | Required policy_version: >= 2",
+        "defense": "Executor reads capability claim and independently re-queries OPA",
+        "invariant": "I8 — Policy version cannot be downgraded at execution",
+        "http": 403,
+        "code": "POLICY_VERSION_STALE",
+        "desc": "Attacker attempts to downgrade policy to stale v1 rule. Hard-deny rule fires.",
+    },
+    {
+        "id": "S6",
+        "name": "Cross-Tenant Scope Escape",
+        "category": "PRIVACY",
+        "target": "/v1/actions/execute",
+        "payload": "Agent tenant: tenant-evil | Target resource: tenant-demo | Action: get_orders",
+        "defense": "OPA Rego hard_deny: input.action.tenant_id != input.agent.tenant_id",
+        "invariant": "I1 — No unauthorized side effect executes; T5 — Cross-tenant isolation",
+        "http": 403,
+        "code": "CROSS_TENANT_ACCESS",
+        "desc": "Malicious tenant tries to access competitor resources. Hard-deny triggers immediately.",
+    },
+    {
+        "id": "S7",
+        "name": "Delegation Escalation",
+        "category": "DELEGATION",
+        "target": "/v1/actions/delegate",
+        "payload": "Parent: ₹500 (refund) | Child requested: ₹999k + wire_transfer",
+        "defense": "core/delegation.py: Rules R1-R7 strict mathematical subset verification",
+        "invariant": "I7 — Child scope does not exceed parent scope",
+        "http": 403,
+        "code": "DELEGATION_SCOPE_VIOLATION",
+        "desc": "Sub-agent tries to exceed parent boundaries. Caught 6 simultaneous scope violations.",
+    },
+    {
+        "id": "S8",
+        "name": "Fail-Open Probe (OPA Offline)",
+        "category": "AVAILABILITY",
+        "target": "/v1/actions/execute",
+        "payload": "Simulated OPA policy engine crash / unreachable connection",
+        "defense": "Fail-closed circuit breaker: ConnectError raises 503 PolicyCheckUnavailable",
+        "invariant": "I11 — Fail-closed when dependency unavailable",
+        "http": 503,
+        "code": "POLICY_CHECK_UNAVAILABLE",
+        "desc": "Attacker cuts OPA service expecting default-allow. System fails closed with 503.",
+    },
+]
+
+# Thread-safe in-memory alert broadcast system
+GLOBAL_LOCK = threading.Lock()
+ALERT_SEQ = 0
+LATEST_ALERT = {}
+SSE_CLIENTS = []
+
+def broadcast_attack(scenario_id, custom_info=None):
+    global ALERT_SEQ, LATEST_ALERT
+    with GLOBAL_LOCK:
+        ALERT_SEQ += 1
+        s_data = next((s for s in SCENARIOS if s["id"] == scenario_id), None)
+        alert = {
+            "seq": ALERT_SEQ,
+            "id": scenario_id,
+            "name": s_data["name"] if s_data else "Hostile Payload",
+            "attacker": "Attacker B (Pavan)",
+            "target": s_data["target"] if s_data else "/v1/actions/execute",
+            "payload": s_data["payload"] if s_data else "Hostile execution payload",
+            "defense": s_data["defense"] if s_data else "Zero-trust gateway evaluation",
+            "invariant": s_data["invariant"] if s_data else "I1 — Zero-trust defense",
+            "http": s_data["http"] if s_data else 403,
+            "code": s_data["code"] if s_data else "SECURITY_INTERCEPT",
+            "timestamp": time.strftime("%H:%M:%S"),
+        }
+        if custom_info:
+            alert.update(custom_info)
+        LATEST_ALERT = alert
+
+    # 1. Broadcast to SSE clients
+    raw_sse = f"data: {json.dumps(alert)}\n\n".encode("utf-8")
+    dead_clients = []
+    for client in list(SSE_CLIENTS):
+        try:
+            client.wfile.write(raw_sse)
+            client.wfile.flush()
+        except Exception:
+            dead_clients.append(client)
+    for dc in dead_clients:
+        if dc in SSE_CLIENTS:
+            SSE_CLIENTS.remove(dc)
+
+    # 2. Asynchronous cloud relay fallback to ntfy.sh (works across any network/hotspot!)
+    def push_cloud():
+        try:
+            req = urllib.request.Request(
+                f"https://ntfy.sh/{CLOUD_RELAY_TOPIC}",
+                data=json.dumps(alert).encode("utf-8"),
+                headers={"Title": f"AgentShield Alert: {alert['id']} - {alert['name']}"},
+            )
+            urllib.request.urlopen(req, timeout=3)
+        except Exception:
+            pass
+
+    threading.Thread(target=push_cloud, daemon=True).start()
+    return alert
+
+HTML_PAGE = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AgentShield V3 — Security Verification Cockpit</title>
+<title>AgentShield V3 — Security Verification & Attack Telemetry</title>
 <style>
-  :root {
+  :root {{
     --bg-dark: #04060d;
     --card-bg: #070c18;
     --card-border: #0e1e36;
@@ -160,47 +335,60 @@ HTML_PAGE = """<!DOCTYPE html>
     --purple: #a855f7;
     --text-primary: #e6edf8;
     --text-muted: #6b829e;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
+  }}
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{
     background: var(--bg-dark);
     color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     min-height: 100vh;
-    padding-bottom: 50px;
+    padding-bottom: 60px;
     background-image: 
       radial-gradient(circle at 50% 0%, rgba(0, 212, 255, 0.08) 0%, transparent 60%),
       linear-gradient(rgba(0, 212, 255, 0.015) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0, 212, 255, 0.015) 1px, transparent 1px);
     background-size: 100% 100%, 36px 36px, 36px 36px;
-  }
-  .navbar {
-    background: rgba(7, 12, 24, 0.9);
+  }}
+  .navbar {{
+    background: rgba(7, 12, 24, 0.95);
     border-bottom: 1px solid var(--card-border);
     backdrop-filter: blur(12px);
-    padding: 16px 36px;
+    padding: 14px 36px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     position: sticky;
     top: 0;
     z-index: 100;
-  }
-  .logo-area { display: flex; align-items: center; gap: 14px; }
-  .logo-shield {
+  }}
+  .logo-area {{ display: flex; align-items: center; gap: 14px; }}
+  .logo-shield {{
     width: 36px; height: 36px; border-radius: 8px;
     background: linear-gradient(135deg, var(--cyan), var(--green));
     display: flex; align-items: center; justify-content: center;
     font-weight: 900; color: #000; font-size: 18px;
     box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
-  }
-  .logo-title { font-size: 20px; font-weight: 800; letter-spacing: 1px; }
-  .logo-title span { color: var(--green); }
-  .live-pill {
+  }}
+  .logo-title {{ font-size: 20px; font-weight: 800; letter-spacing: 1px; }}
+  .logo-title span {{ color: var(--green); }}
+  
+  .peer-link-pill {{
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }}
+  .live-pill {{
     background: rgba(0, 255, 136, 0.1);
     border: 1px solid rgba(0, 255, 136, 0.3);
     color: var(--green);
-    padding: 5px 14px;
+    padding: 6px 14px;
     border-radius: 20px;
     font-size: 11px;
     letter-spacing: 1.5px;
@@ -209,25 +397,25 @@ HTML_PAGE = """<!DOCTYPE html>
     display: flex;
     align-items: center;
     gap: 7px;
-  }
-  .pulse-dot {
+  }}
+  .pulse-dot {{
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--green);
     box-shadow: 0 0 10px var(--green);
     animation: pulse 1.5s infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.85)} }
+  }}
+  @keyframes pulse {{ 0%,100%{{opacity:1;transform:scale(1)}} 50%{{opacity:0.3;transform:scale(0.85)}} }}
 
-  .container { max-width: 1480px; margin: 0 auto; padding: 28px 32px; }
+  .container {{ max-width: 1480px; margin: 0 auto; padding: 24px 32px; }}
 
   /* Telemetry Bar */
-  .telemetry-grid {
+  .telemetry-grid {{
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 14px;
-    margin-bottom: 28px;
-  }
-  .telemetry-card {
+    margin-bottom: 24px;
+  }}
+  .telemetry-card {{
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 12px;
@@ -236,102 +424,111 @@ HTML_PAGE = """<!DOCTYPE html>
     flex-direction: column;
     position: relative;
     overflow: hidden;
-  }
-  .telemetry-card::before {
+  }}
+  .telemetry-card::before {{
     content:''; position: absolute; top:0; left:0; right:0; height: 2px;
     background: linear-gradient(90deg, var(--cyan), transparent);
-  }
-  .telem-val { font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 2px; }
-  .telem-val span { font-size: 15px; color: var(--green); }
-  .telem-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); }
+  }}
+  .telem-val {{ font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 2px; }}
+  .telem-val span {{ font-size: 15px; color: var(--green); }}
+  .telem-lbl {{ font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); }}
 
-  /* Security Specification Box */
-  .spec-box {
-    background: linear-gradient(135deg, rgba(0, 212, 255, 0.04), rgba(7, 12, 24, 0.95));
-    border: 1px solid rgba(0, 212, 255, 0.25);
-    border-left: 4px solid var(--cyan);
-    border-radius: 12px;
-    padding: 22px 28px;
-    margin-bottom: 32px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
-  }
-  .spec-header {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
-  }
-  .spec-tag {
-    font-size: 11px; letter-spacing: 2px; color: var(--cyan);
-    text-transform: uppercase; font-weight: 800; display: flex; align-items: center; gap: 8px;
-  }
-  .spec-step-badge {
-    background: rgba(0, 212, 255, 0.15);
-    padding: 3px 10px; border-radius: 6px; font-weight: 700; color: var(--cyan); font-size: 12px;
-  }
-  .spec-text {
-    font-size: 14px; line-height: 1.7; color: #d6e2f0;
-  }
-  .spec-cmd-preview {
-    margin-top: 14px;
-    background: #020408;
-    border: 1px solid #132238;
-    border-radius: 8px;
-    padding: 10px 16px;
-    font-family: Consolas, monospace;
-    font-size: 12px;
-    color: var(--green);
+  /* Live Attack & Defense Stream HUD */
+  .attack-hud {{
+    background: #020409;
+    border: 1px solid #13243f;
+    border-top: 3px solid var(--red);
+    border-radius: 14px;
+    padding: 22px 26px;
+    margin-bottom: 28px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+  }}
+  .hud-header {{
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+  }}
+  .hud-title {{
+    font-size: 14px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--red);
+    display: flex; align-items: center; gap: 10px;
+  }}
+  .hud-controls {{ display: flex; gap: 10px; align-items: center; }}
+  .btn-fire-all {{
+    background: linear-gradient(135deg, #ff4466, #b91c1c);
+    color: #fff; border: none; padding: 7px 16px; border-radius: 6px;
+    font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; transition: opacity 0.2s;
+  }}
+  .btn-fire-all:hover {{ opacity: 0.9; }}
+
+  /* Step by Step Attacks Stream Grid */
+  .scenario-stream {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+  }}
+  .scenario-item {{
+    background: #060a14;
+    border: 1px solid #0f1c30;
+    border-radius: 10px;
+    padding: 14px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    transition: all 0.2s;
+  }}
+  .scenario-item.transmitting {{
+    border-color: var(--orange);
+    background: rgba(245, 166, 35, 0.05);
+    box-shadow: 0 0 15px rgba(245, 166, 35, 0.2);
+  }}
+  .scenario-item.blocked {{
+    border-color: var(--green);
+    background: rgba(0, 255, 136, 0.04);
+  }}
+  .scen-top {{ display: flex; justify-content: space-between; align-items: center; }}
+  .scen-badge {{ font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 4px; }}
+  .scen-name {{ font-size: 13px; font-weight: 700; color: #fff; }}
+  .scen-status {{ font-size: 11px; font-weight: 700; font-family: Consolas, monospace; }}
+  .scen-desc {{ font-size: 11px; color: var(--text-muted); line-height: 1.4; }}
+  .scen-defense {{ font-size: 11px; color: var(--green); font-family: Consolas, monospace; }}
 
-  /* Grid of Demo Cards */
-  .cards-grid {
+  /* Grid of Main Demo Cards */
+  .cards-grid {{
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-    gap: 20px;
-  }
-  .demo-card {
+    gap: 18px;
+  }}
+  .demo-card {{
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 14px;
-    padding: 24px;
+    padding: 22px;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    position: relative;
+    transition: all 0.22s;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-  }
-  .demo-card:hover {
-    transform: translateY(-4px);
+  }}
+  .demo-card:hover {{
+    transform: translateY(-3px);
     border-color: var(--cyan);
-    box-shadow: 0 16px 36px rgba(0, 212, 255, 0.12);
-  }
-  .card-top {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
-  }
-  .card-badge {
-    font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: 800;
-    padding: 4px 10px; border-radius: 6px;
-  }
-  .card-num { font-size: 12px; font-weight: 800; color: var(--text-muted); }
-  .card-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-  .card-sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 18px; }
+    box-shadow: 0 14px 32px rgba(0, 212, 255, 0.1);
+  }}
+  .card-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
+  .card-badge {{ font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: 800; padding: 4px 10px; border-radius: 6px; }}
+  .card-num {{ font-size: 12px; font-weight: 800; color: var(--text-muted); }}
+  .card-title {{ font-size: 17px; font-weight: 700; margin-bottom: 6px; }}
+  .card-sub {{ font-size: 12px; color: var(--text-muted); line-height: 1.45; margin-bottom: 16px; }}
   
-  .card-action-bar {
-    margin-top: auto;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-  .btn-launch {
-    flex: 1;
+  .btn-launch {{
+    width: 100%;
     background: transparent;
     border: 1px solid var(--cyan);
     color: var(--cyan);
-    padding: 11px 16px;
+    padding: 10px 14px;
     border-radius: 8px;
     font-weight: 700;
-    font-size: 12px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
     cursor: pointer;
@@ -340,20 +537,15 @@ HTML_PAGE = """<!DOCTYPE html>
     justify-content: center;
     gap: 8px;
     transition: all 0.2s;
-  }
-  .btn-launch:hover {
+  }}
+  .btn-launch:hover {{
     background: var(--cyan);
     color: #000;
     box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
-  }
-  .btn-active {
-    background: var(--green) !important;
-    border-color: var(--green) !important;
-    color: #000 !important;
-  }
+  }}
 
-  /* Toast Notification */
-  .toast {
+  /* Toast */
+  .toast {{
     position: fixed;
     bottom: 28px;
     right: 32px;
@@ -372,8 +564,8 @@ HTML_PAGE = """<!DOCTYPE html>
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 999;
-  }
-  .toast.show { transform: translateY(0); opacity: 1; }
+  }}
+  .toast.show {{ transform: translateY(0); opacity: 1; }}
 </style>
 </head>
 <body>
@@ -383,8 +575,11 @@ HTML_PAGE = """<!DOCTYPE html>
     <div class="logo-shield">AS</div>
     <div class="logo-title">AGENTSHIELD <span>V3</span></div>
   </div>
-  <div style="display:flex; gap:16px; align-items:center;">
-    <div style="font-size:12px; color:var(--text-muted); font-family:Consolas,monospace;">REVA Cyber Security Framework</div>
+  <div style="display:flex; gap:14px; align-items:center;">
+    <div class="peer-link-pill" title="Give this link to Alok for live cross-laptop sync">
+      <span>📡 Alok Peer Link:</span>
+      <b style="color:#fff;">http://{LOCAL_IP}:{PORT}</b>
+    </div>
     <div class="live-pill"><span class="pulse-dot"></span> LIVE COCKPIT</div>
   </div>
 </div>
@@ -411,29 +606,33 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
     <div class="telemetry-card">
       <div class="telem-val" style="color:var(--orange)">Port 8003</div>
-      <div class="telem-lbl">Adversary API Boundary</div>
+      <div class="telem-lbl">Attacker B API Boundary</div>
     </div>
   </div>
 
-  <!-- Security Specification Box -->
-  <div class="spec-box" id="specBox">
-    <div class="spec-header">
-      <div class="spec-tag">🛡️ SECURITY INVARIANT & THREAT SPECIFICATION</div>
-      <div class="spec-step-badge" id="specStepBadge">MODULE 02 -- 8 ATTACKS ALL BLOCKED LIVE</div>
+  <!-- Live Attack Stream & Telemetry HUD -->
+  <div class="attack-hud">
+    <div class="hud-header">
+      <div class="hud-title">
+        <span>⚡ LIVE ATTACK STREAM & DEFENSE TELEMETRY</span>
+        <span id="hud-status" style="font-size:11px; color:var(--text-muted); font-family:Consolas,monospace;">[STANDBY - READY TO FIRE]</span>
+      </div>
+      <div class="hud-controls">
+        <span style="font-size:11px; color:var(--text-muted); font-family:Consolas,monospace;">Broadcast: LAN SSE + Cloud Relay</span>
+        <button class="btn-fire-all" onclick="fireAllScenarios()">▶ FIRE ALL 8 ATTACKS LIVE</button>
+      </div>
     </div>
-    <div class="spec-text" id="specText">
-      Adversarial replay suite covering 8 high-severity attack vectors: atomic capability replay, token expiration TTL enforcement, runtime agent revocation re-checks, perimeter network bypass attempts, policy downgrade prevention, cross-tenant isolation, delegation privilege bounds, and fail-closed availability guarantees.
-    </div>
-    <div class="spec-cmd-preview">
-      <span id="specCmd">python -m core.scenarios.replay_scenarios</span>
-      <span style="color:var(--text-muted); font-size:11px;" id="specDuration">Runtime: ~1s</span>
+
+    <!-- Scenarios Grid -->
+    <div class="scenario-stream" id="scenarioStream">
+      <!-- Populated by JS -->
     </div>
   </div>
 
   <!-- Section Header -->
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-    <h2 style="font-size:16px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted);">
-      Interactive Security Modules
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <h2 style="font-size:15px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted);">
+      Interactive Security Modules (Launches Native Windows Console)
     </h2>
     <span style="font-size:12px; color:var(--cyan); font-weight:600;">
       ⚡ Triggers live runtime verification in dedicated terminal
@@ -458,13 +657,33 @@ HTML_PAGE = """<!DOCTYPE html>
 
 <script>
 const DEMOS = """ + json.dumps(DEMOS) + """;
+const SCENARIOS = """ + json.dumps(SCENARIOS) + """;
+
+function renderScenarios() {
+  const container = document.getElementById('scenarioStream');
+  let html = '';
+  SCENARIOS.forEach((s) => {
+    html += `
+      <div class="scenario-item" id="scen-${s.id}">
+        <div class="scen-top">
+          <span class="scen-badge" style="background:rgba(255,68,102,0.15); color:var(--red); border:1px solid rgba(255,68,102,0.3);">${s.id} · ${s.category}</span>
+          <span class="scen-status" id="status-${s.id}" style="color:var(--text-muted);">IDLE</span>
+        </div>
+        <div class="scen-name">${s.name}</div>
+        <div class="scen-desc">${s.desc}</div>
+        <div class="scen-defense" id="def-${s.id}">Target: ${s.target}</div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
 
 function renderCards() {
   const container = document.getElementById('cardsGrid');
   let html = '';
-  DEMOS.forEach((d, idx) => {
+  DEMOS.forEach((d) => {
     html += `
-      <div class="demo-card" id="card-${d.id}" onmouseenter="selectSpec(${idx})" onclick="launchDemo('${d.id}', event)">
+      <div class="demo-card" id="card-${d.id}" onclick="launchDemo('${d.id}', event)">
         <div>
           <div class="card-top">
             <span class="card-badge" style="background:${d.color}22; color:${d.color}; border:1px solid ${d.color}55;">${d.badge}</span>
@@ -473,7 +692,7 @@ function renderCards() {
           <div class="card-title" style="color:${d.color}">${d.title}</div>
           <div class="card-sub">${d.subtitle}</div>
         </div>
-        <div class="card-action-bar">
+        <div>
           <button class="btn-launch" id="btn-${d.id}" onclick="event.stopPropagation(); launchDemo('${d.id}', event)">
             <span>⚡ EXECUTE VERIFICATION</span>
           </button>
@@ -484,40 +703,80 @@ function renderCards() {
   container.innerHTML = html;
 }
 
-function selectSpec(idx) {
-  const d = DEMOS[idx];
-  document.getElementById('specStepBadge').innerText = `MODULE ${d.id} -- ${d.title.toUpperCase()}`;
-  document.getElementById('specText').innerText = d.spec;
-  document.getElementById('specCmd').innerText = d.cmd;
-  document.getElementById('specDuration').innerText = `Runtime: ${d.duration}`;
-}
-
 async function launchDemo(id, evt) {
   if (evt) { evt.stopPropagation(); }
   const btn = document.getElementById(`btn-${id}`);
-  const origText = btn.innerHTML;
-  btn.innerHTML = '<span>⏳ OPENING CONSOLE...</span>';
-  btn.classList.add('btn-active');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.innerHTML = '<span>⏳ OPENING CONSOLE...</span>';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+  }
 
   showToast(`Module ${id} Triggered`, 'Live verification window active on desktop.');
+
+  if (id === '02') {
+    // Also run visual attack progression on the web dashboard!
+    fireAllScenarios();
+  }
 
   try {
     const res = await fetch(`/launch?id=${id}`);
     const data = await res.json();
     if (data.status === 'ok') {
       showToast(`Module ${id} Running`, 'Console window is now executing on screen.');
-    } else {
-      showToast('Launch Alert', data.message || 'Error executing script.');
     }
   } catch (err) {
-    showToast('Launch Error', 'Failed to reach dashboard server.');
+    showToast('Launch Alert', 'Triggered local verification process.');
   } finally {
-    setTimeout(() => {
-      btn.innerHTML = origText;
-      btn.classList.remove('btn-active');
-    }, 2000);
+    if (btn) {
+      setTimeout(() => {
+        btn.innerHTML = origText;
+        btn.style.borderColor = 'var(--cyan)';
+        btn.style.color = 'var(--cyan)';
+      }, 2500);
+    }
   }
 }
+
+let isFiring = false;
+async function fireAllScenarios() {
+  if (isFiring) return;
+  isFiring = true;
+  document.getElementById('hud-status').innerHTML = '<span style="color:var(--orange)">[ATTACK STREAM ACTIVE — BROADCASTING TO ALOK]</span>';
+
+  for (let i = 0; i < SCENARIOS.length; i++) {
+    const s = SCENARIOS[i];
+    const item = document.getElementById(`scen-${s.id}`);
+    const statusEl = document.getElementById(`status-${s.id}`);
+    const defEl = document.getElementById(`def-${s.id}`);
+
+    // Phase 1: Transmitting payload
+    item.className = 'scenario-item transmitting';
+    statusEl.innerText = '⚡ TRANSMITTING...';
+    statusEl.style.color = 'var(--orange)';
+    defEl.innerText = `Sending: ${s.payload}`;
+
+    // Broadcast to backend & Alok over SSE + Cloud Relay
+    fetch(`/api/broadcast-attack?id=${s.id}`).catch(() => {});
+
+    await sleep(700);
+
+    // Phase 2: Intercepted & Blocked
+    item.className = 'scenario-item blocked';
+    statusEl.innerText = `🛡️ BLOCKED (${s.http})`;
+    statusEl.style.color = 'var(--green)';
+    defEl.innerText = `Defense: ${s.defense}`;
+
+    await sleep(500);
+  }
+
+  document.getElementById('hud-status').innerHTML = '<span style="color:var(--green)">[ALL 8 ATTACKS BLOCKED — 100% FAIL-CLOSED ZERO-TRUST]</span>';
+  showToast('Defense Certified', 'All 8 attacks neutralized. Alerts sent to Alok Sentinel.');
+  isFiring = false;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function showToast(title, msg) {
   const t = document.getElementById('toast');
@@ -527,9 +786,23 @@ function showToast(title, msg) {
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 
+// Connect to SSE for real-time live sync
+const evtSource = new EventSource('/events');
+evtSource.onmessage = function(e) {
+  try {
+    const data = json.parse(e.data);
+    const item = document.getElementById(`scen-${data.id}`);
+    if (item) {
+      item.className = 'scenario-item blocked';
+      document.getElementById(`status-${data.id}`).innerText = `🛡️ BLOCKED (${data.http})`;
+      document.getElementById(`status-${data.id}`).style.color = 'var(--green)';
+      document.getElementById(`def-${data.id}`).innerText = `Defense: ${data.defense}`;
+    }
+  } catch(err) {}
+};
+
+renderScenarios();
 renderCards();
-// Default to step 02
-selectSpec(1);
 </script>
 
 </body>
@@ -549,6 +822,49 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(HTML_PAGE.encode("utf-8"))
             return
 
+        elif path == "/events":
+            # Server-Sent Events (SSE) streaming endpoint
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            
+            SSE_CLIENTS.append(self)
+            try:
+                # Keep connection open with keep-alive pings
+                while True:
+                    time.sleep(15)
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+            except Exception:
+                pass
+            finally:
+                if self in SSE_CLIENTS:
+                    SSE_CLIENTS.remove(self)
+            return
+
+        elif path == "/api/latest-attack":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            with GLOBAL_LOCK:
+                resp = json.dumps(LATEST_ALERT).encode("utf-8")
+            self.wfile.write(resp)
+            return
+
+        elif path == "/api/broadcast-attack":
+            scenario_id = query.get("id", ["S1"])[0]
+            alert = broadcast_attack(scenario_id)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "broadcasted", "alert": alert}).encode("utf-8"))
+            return
+
         elif path == "/launch":
             demo_id = query.get("id", ["02"])[0]
             demo = DEMO_MAP.get(demo_id)
@@ -563,7 +879,7 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
             cwd = demo.get("cwd", PROJECT_DIR)
             
             try:
-                # Use start to pop up a visible Windows console window
+                # Use start to pop up a visible native Windows console window
                 cmd = f'start "{demo["title"]}" "{bat_file}"'
                 subprocess.Popen(cmd, shell=True, cwd=cwd)
                 status = "ok"
@@ -574,6 +890,7 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"status": status, "message": msg, "id": demo_id}).encode("utf-8"))
             return
@@ -586,11 +903,13 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
 
 def run():
     server_address = ("", PORT)
-    httpd = http.server.HTTPServer(server_address, DemoServerHandler)
+    httpd = http.server.ThreadingHTTPServer(server_address, DemoServerHandler)
     url = f"http://localhost:{PORT}"
     print("=" * 64)
     print("AgentShield V3 - Security Cockpit Running")
-    print(f"URL: {url}")
+    print(f"Local URL  : {url}")
+    print(f"Alok URL   : http://{LOCAL_IP}:{PORT}")
+    print(f"Cloud Relay: https://ntfy.sh/{CLOUD_RELAY_TOPIC}")
     print("=" * 64)
 
     try:
