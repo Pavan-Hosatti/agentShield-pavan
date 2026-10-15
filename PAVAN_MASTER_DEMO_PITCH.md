@@ -165,3 +165,43 @@ When the judges ask: *"What was YOUR specific technical contribution?"*, state t
 | **3. Delegation** | 6 Violations | *"Sub-agent tried to steal ₹10 Lakhs — delegation denied."* | Confused Deputy, Invariant I7, Mathematical Subset |
 | **4. Blast Radius** | ₹12.5L Bar + JSON | *"Contained ₹12.5 Lakhs in fraud with SIEM-ready forensic traces."* | Blast Radius, SHA-256 Action Digest, Non-Repudiation |
 | **5. Proof** | Proof Bundle | *"HMAC-sealed audit certificate compliant with EU AI Act."* | EU AI Act Art 14/15, Invariants I1..I11, Proof Bundle |
+| **6. IBM Bob** | Card #11 + MCP Badge | *"AgentShield acts as the Zero-Trust MCP Security Proxy for IBM Bob."* | Model Context Protocol (MCP), JSON-RPC 2.0, OWASP LLM08, Confused Deputy |
+
+---
+
+## 🏢 Special Sponsor Track: How to Pitch & Convince IBM Judges (IBM Bob Integration)
+
+### 🎯 The Secret Mindset of IBM Evaluators:
+IBM is heavily promoting **IBM Bob** (their new autonomous AI coding and workflow agent) and the **Model Context Protocol (MCP)**.
+IBM judges are looking for projects that:
+1. Recognize **IBM Bob's agentic architecture** (autonomous subagents + MCP tool calls).
+2. Solve IBM's #1 enterprise sales blocker: **Enterprise clients fear deploying autonomous agents like IBM Bob because of unbounded tool execution risk.**
+3. Integrate with IBM enterprise standards (**MCP `.bob/mcp.json`**, JSON-RPC 2.0, and SIEM logging).
+
+---
+
+### 🎙️ The 30-Second IBM Sponsor Pitch (Deliver when IBM judges approach):
+
+> *"Good afternoon, Judges. As IBM expands enterprise agentic workflows with **IBM Bob**, the primary adoption barrier for banks and Fortune 500s is **Excessive Agency (OWASP LLM08)** and **Tool Call Replays (CWE-362)**.*
+> 
+> *IBM Bob uses the **Model Context Protocol (MCP)** to connect autonomous subagents to databases, cloud deployments, and banking APIs via `.bob/mcp.json`. But if a subagent is tricked by prompt injection or suffers a concurrency race condition, it can execute catastrophic unauthorized tool calls.*
+> 
+> *We engineered **AgentShield as a native Zero-Trust MCP Security Gateway for IBM Bob**.*
+> 
+> *(Click Card #11: IBM Bob MCP Security Proxy on the dashboard)*
+> 
+> *Notice our dashboard: AgentShield hooks directly into `.bob/mcp.json` as the MCP reverse proxy. When IBM Bob subagents issue JSON-RPC `tools/call` requests, AgentShield enforces atomic JTI deduplication in Redis, validates Invariants I1 through I11, and bounds financial transactions to enterprise thresholds—failing closed before any tool can mutate production state."*
+
+---
+
+### 🛡️ How to Answer IBM Judge Trap Questions:
+
+#### Q1: *"How does AgentShield physically connect to IBM Bob?"*
+> **Answer:** *"IBM Bob discovers tools via `.bob/mcp.json` in the project root. We configured AgentShield as an MCP proxy server. When IBM Bob requests a tool call via standard JSON-RPC 2.0 (`tools/call`), the request routes through `integrations/ibm_bob_mcp_proxy.py`. AgentShield inspects the payload, checks JTI nonce single-use in Redis, verifies that transaction parameters satisfy our OPA Rego policies, and only passes authorized calls through to the backend."*
+
+#### Q2: *"Why is this needed if IBM already has watsonx.governance?"*
+> **Answer:** *"watsonx.governance is fantastic at the **foundation model layer**—evaluating prompt toxicity, hallucination drift, and input sanitization. But watsonx does not sit at the **operating system / API runtime boundary**. Once an autonomous agent decides to emit an MCP tool call, only a deterministic proxy like AgentShield can enforce atomic DB locks, prevent CWE-362 race conditions across parallel subagents, and mathematically verify delegation subset invariants."*
+
+#### Q3: *"Does this slow down IBM Bob's developer experience?"*
+> **Answer:** *"Not at all. The entire AgentShield MCP boundary adds less than **2.0 milliseconds** of latency. Legitimate developer tool calls pass through instantly with an HMAC-signed audit seal, while unauthorized or replayed calls are stopped with standard JSON-RPC error codes that IBM Bob natively understands and can recover from."*
+

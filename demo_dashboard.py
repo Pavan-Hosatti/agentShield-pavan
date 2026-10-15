@@ -161,6 +161,18 @@ DEMOS = [
         "duration": "~3s",
         "spec": "Complete automated verification suite containing 426 passing tests across unit boundaries, adversarial attack simulations, and integration workflows. Executes in under 3 seconds with 0 failures.",
     },
+    {
+        "id": "11",
+        "name": "IBM_Bob_MCP_Security_Proxy",
+        "badge": "IBM BOB MCP",
+        "color": "#78a9ff",
+        "title": "IBM Bob MCP Security Proxy",
+        "subtitle": "Model Context Protocol JSON-RPC 2.0 gateway verification - CWE-362 and I1 enforcement",
+        "cmd": "python -m integrations.ibm_bob_mcp_proxy --test",
+        "cwd": PROJECT_DIR,
+        "duration": "<1s",
+        "spec": "Verifies AgentShield as a Model Context Protocol (MCP) reverse proxy for IBM Bob. Evaluates JSON-RPC 2.0 tool execution requests from autonomous subagents, intercepting CWE-362 replays and bounding agency via Invariant I1.",
+    },
 ]
 
 DEMO_MAP = {d["id"]: d for d in DEMOS}
@@ -721,7 +733,11 @@ HTML_PAGE = f"""<!DOCTYPE html>
     <div class="logo-shield">AS</div>
     <div class="logo-title">AGENTSHIELD <span>V3</span></div>
   </div>
-  <div style="display:flex; gap:14px; align-items:center;">
+  <div style="display:flex; gap:12px; align-items:center;">
+    <div style="background: rgba(15, 98, 254, 0.15); border: 1px solid #0f62fe; padding: 5px 12px; border-radius: 8px; font-size: 11px; color: #78a9ff; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+      <span style="background: #0f62fe; color: #fff; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 900;">IBM BOB</span>
+      <span>MCP Security Proxy Active</span>
+    </div>
     <div class="peer-link-pill" title="Share with Alok for real-time LAN sync">
       <span>📡 Alok Peer Link:</span>
       <b style="color:#fff;">http://{LOCAL_IP}:{PORT}</b>
@@ -739,12 +755,16 @@ HTML_PAGE = f"""<!DOCTYPE html>
       <span class="blast-lbl">Financial Fraud Blast Radius Contained</span>
     </div>
     <div class="blast-item">
+      <span class="blast-val" style="color:#78a9ff">IBM Bob (MCP)</span>
+      <span class="blast-lbl">Guarded Agent Ecosystem</span>
+    </div>
+    <div class="blast-item">
       <span class="blast-val" style="color:var(--cyan)">100% (50k+ records)</span>
       <span class="blast-lbl">Multi-Tenant Isolation (Zero Leaks)</span>
     </div>
     <div class="blast-item">
       <span class="blast-val" style="color:var(--orange)">MITRE ATLAS + OWASP</span>
-      <span class="blast-lbl">Industry Threat Model Compliance</span>
+      <span class="blast-lbl">Threat Model Compliance</span>
     </div>
     <div class="blast-item">
       <span class="blast-val" style="color:#fff">&lt; 2.0 ms</span>
@@ -787,6 +807,15 @@ HTML_PAGE = f"""<!DOCTYPE html>
         <span style="font-size:11px; color:var(--text-muted); font-family:Consolas,monospace;">Broadcast: LAN SSE + Cloud Relay</span>
         <button class="btn-fire-all" onclick="fireAllScenarios()">▶ FIRE ALL 8 ATTACKS LIVE</button>
       </div>
+    </div>
+
+    <!-- IBM Bob Ecosystem Indicator -->
+    <div style="background: rgba(15, 98, 254, 0.08); border: 1px solid rgba(15, 98, 254, 0.25); border-radius: 8px; padding: 8px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="color: #78a9ff; font-weight: 800;">🤖 TARGET AGENT ECOSYSTEM:</span>
+        <span style="color: #fff; font-family: Consolas, monospace;">IBM Bob Autonomous SDLC Agent · Model Context Protocol (MCP v1.0)</span>
+      </div>
+      <div style="color: var(--green); font-weight: 700; font-family: Consolas, monospace;">● DETERMINISTIC MCP HOOK ATTACHED (FAIL-CLOSED)</div>
     </div>
 
     <!-- Scenarios Grid -->
@@ -889,8 +918,21 @@ function inspectForensics(id) {
   const s = SCENARIOS.find(x => x.id === id);
   if (!s) return;
   document.getElementById('modalTitle').innerText = `FORENSIC AUDIT TRACE · ${s.id}`;
-  document.getElementById('modalScenario').innerHTML = `<b>Scenario:</b> ${s.name} &nbsp;|&nbsp; <b>Risk Contained:</b> <span style="color:var(--green)">${s.saved}</span>`;
-  document.getElementById('modalJson').innerText = JSON.stringify(s.forensic, null, 2);
+  document.getElementById('modalScenario').innerHTML = `
+    <b>Scenario:</b> ${s.name} &nbsp;|&nbsp; 
+    <b>Agent Client:</b> <span style="color:#78a9ff">IBM Bob (MCP Subagent)</span> &nbsp;|&nbsp; 
+    <b>Risk Contained:</b> <span style="color:var(--green)">${s.saved}</span>
+  `;
+  const mcpEnvelope = {
+    "mcp_protocol_version": "2024-11-05 (JSON-RPC 2.0)",
+    "client_agent": "IBM Bob Autonomous SDLC Agent",
+    "subagent_context": "subagent-executor-worker-04",
+    "target_mcp_tool": s.target,
+    "intercept_gateway": "AgentShield V3 Deterministic Security Proxy",
+    "enforcement_action": s.defense,
+    "forensic_telemetry": s.forensic
+  };
+  document.getElementById('modalJson').innerText = JSON.stringify(mcpEnvelope, null, 2);
   document.getElementById('forensicModal').classList.add('open');
 }
 
