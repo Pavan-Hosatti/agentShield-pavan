@@ -265,8 +265,8 @@ export function runStateMachineScenario(scenario: ScenarioType): SimulatedExecut
   return {
     id: `sim-${scenario}-${Date.now()}`,
     events,
-    finalState: current,
-    succeeded: current === 'SUCCEEDED',
+    finalState: current as ExecState,
+    succeeded: (current as string) === 'SUCCEEDED',
     wasAttack,
   }
 }

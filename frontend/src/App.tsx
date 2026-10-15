@@ -11,6 +11,7 @@ import BaselinesTab from './components/BaselinesTab'
 import StateMachineTab from './components/StateMachineTab'
 import ThreatMapTab from './components/ThreatMapTab'
 import MutationsTab from './components/MutationsTab'
+import DefenseSentinel from './components/DefenseSentinel'
 import './App.css'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ const rupeeFmt = (paise: number) =>
 
 // ── Main App ──────────────────────────────────────────────────
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'console' | 'matrix' | 'digest' | 'policy' | 'baselines' | 'statemachine' | 'threatmap' | 'mutations'>('console')
+  const [activeTab, setActiveTab] = useState<'console' | 'matrix' | 'digest' | 'policy' | 'baselines' | 'statemachine' | 'threatmap' | 'mutations' | 'sentinel'>('sentinel')
   const [logs, setLogs] = useState<LogEntry[]>([
     mkLog('SYS', 'AgentShield Security Console v2.0 initialised'),
     mkLog('SYS', 'OPA Policy Engine: LOADED  |  Policy: agentshield.rego v3'),
@@ -173,6 +174,7 @@ export default function App() {
       {/* ── Tabs ── */}
       <nav className="tabs">
         {[
+          { id: 'sentinel',     label: '[ 🤖 AI DEFENSE SENTINEL ]' },
           { id: 'console',      label: '[ POLICY CONSOLE ]' },
           { id: 'matrix',       label: '[ ATTACK MATRIX ]' },
           { id: 'digest',       label: '[ DIGEST DEMO ]' },
@@ -193,6 +195,7 @@ export default function App() {
 
       {/* ── Body ── */}
       <div className="body">
+        {activeTab === 'sentinel' && <DefenseSentinel />}
         {activeTab === 'console' && (
           <ConsoleTab
             form={form}
