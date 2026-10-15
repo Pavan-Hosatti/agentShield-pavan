@@ -1109,7 +1109,10 @@ class DemoServerHandler(http.server.BaseHTTPRequestHandler):
             cwd = demo.get("cwd", PROJECT_DIR)
             
             try:
-                cmd = f'start "{demo["title"]}" "{bat_file}"'
+                if os.path.exists(bat_file):
+                    cmd = f'start "{demo["title"]}" "{bat_file}"'
+                else:
+                    cmd = f'start "{demo["title"]}" cmd.exe /k "cd /d {cwd} && {demo["cmd"]}"'
                 subprocess.Popen(cmd, shell=True, cwd=cwd)
                 status = "ok"
                 msg = f"Launched verification for {demo['title']}"
